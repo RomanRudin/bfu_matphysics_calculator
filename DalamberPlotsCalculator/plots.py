@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.widgets import Slider
 from typing import Optional
+from manual_drawn_plot import Segment
 
 
 class TSlider(Slider):

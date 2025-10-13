@@ -93,7 +93,7 @@ class Window(QWidget):
         phi_text = QLabel('U|t=0 = ϕ(x) = ')
         self.phi_parameter = QLineEdit()
         self.phi_parameter.setPlaceholderText('Enter the ϕ(x) or draw it manually in the plot')  
-        self.phi_parameter.textChanged.connect(self.refresh)
+        self.phi_parameter.textChanged.connect(self.refresh_initial_plots)
         phi_text_layout.addWidget(phi_text, stretch=1)
         phi_text_layout.addWidget(self.phi_parameter, stretch=5)
         self.phi_input_plot_figure = plt.figure()
@@ -111,7 +111,7 @@ class Window(QWidget):
         psi_text = QLabel('Ut|t=0 = ψ(x) = ')
         self.psi_parameter = QLineEdit()
         self.psi_parameter.setPlaceholderText('Enter the ψ(x) or draw it manually in the plot')  
-        self.psi_parameter.textChanged.connect(self.refresh)
+        self.psi_parameter.textChanged.connect(self.refresh_initial_plots)
         psi_text_layout.addWidget(psi_text, stretch=1)
         psi_text_layout.addWidget(self.psi_parameter, stretch=5)
         self.psi_input_plot_figure = plt.figure()
@@ -138,7 +138,7 @@ class Window(QWidget):
         self.a_parameter = QLineEdit()
         self.a_parameter.setPlaceholderText('a ** 2')
         # self.a_parameter.textChanged.connect(lambda _: self.refresh(self.a_parameter.text()))
-        self.a_parameter.textChanged.connect(self.refresh)
+        self.a_parameter.textChanged.connect(self.refresh_resulting_plots)
         second_part = QLabel('Uxx + f(x, t)')
         equation_text_layout.addWidget(first_part, stretch=3)
         equation_text_layout.addWidget(self.a_parameter, stretch=1)
@@ -156,7 +156,8 @@ class Window(QWidget):
         f_text = QLabel('f(x, t) = ')
         self.f_function = QLineEdit()
         self.f_function.setPlaceholderText('0')
-        self.f_function.textChanged.connect(self.refresh)
+        self.f_function.setEnabled(False) #! TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+        self.f_function.textChanged.connect(self.refresh_resulting_plots)
         # self.f_function.textChanged.connect(lambda _: self.refresh(self.f_function.text()))
         f_layout.addWidget(f_text, stretch=1)
         f_layout.addWidget(self.f_function, stretch=4)
@@ -170,13 +171,12 @@ class Window(QWidget):
         
         left_constraint_layout = QVBoxLayout()
         self.left_constraint_choose = RadioButtons()
-        self.left_constraint_choose.constraintType.connect(self.refresh)
         self.left_constraint_choose.constraintType.connect(self.refresh_left_constraint)
         left_x0_pararameter_layout = QHBoxLayout()
         left_x0_pararameter_text = QLabel('x0 = ')
         self.left_x0_parameter = QLineEdit('0')
         self.left_x0_parameter.setPlaceholderText('Enter the x0 if you choose U|x=x0 = 0 or Ux|x=x0 = 0')
-        self.left_x0_parameter.textChanged.connect(self.refresh)
+        self.left_x0_parameter.textChanged.connect(self.refresh_initial_plots)
         self.left_x0_parameter.setEnabled(False)
         left_x0_pararameter_layout.addWidget(left_x0_pararameter_text, stretch=1)
         left_x0_pararameter_layout.addWidget(self.left_x0_parameter, stretch=4)
@@ -189,13 +189,12 @@ class Window(QWidget):
         
         right_constraint_layout = QVBoxLayout()
         self.right_constraint_choose = RadioButtons()
-        self.right_constraint_choose.constraintType.connect(self.refresh)
-        self.right_constraint_choose.constraintType.connect(self.refresh_right_constraint)
+        self.right_constraint_choose.constraintType.connect(self.refresh_initial_plots)
         right_x0_pararameter_layout = QHBoxLayout()
         right_x0_pararameter_text = QLabel('x0 = ')
         self.right_x0_parameter = QLineEdit('0')
         self.right_x0_parameter.setPlaceholderText('Enter the x0 if you choose U|x=x0 = 0 or Ux|x=x0 = 0')
-        self.right_x0_parameter.textChanged.connect(self.refresh)
+        self.right_x0_parameter.textChanged.connect(self.refresh_initial_plots)
         self.right_x0_parameter.setEnabled(False)
         right_x0_pararameter_layout.addWidget(right_x0_pararameter_text, stretch=1)
         right_x0_pararameter_layout.addWidget(self.right_x0_parameter, stretch=4)
@@ -210,25 +209,94 @@ class Window(QWidget):
         constraint_layout.addLayout(right_constraint_layout, stretch=1)
 
 
+        # Initial plots
+        initial_plots_layout = QHBoxLayout()
+        main_layout.addLayout(initial_plots_layout)
 
-        self.
+        self.phi_initial_plot_figure = plt.figure()
+        self.phi_initial_plot_figure_canvas = FigureCanvasQTAgg(self.phi_initial_plot_figure)
+        self.phi_initial_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        initial_plots_layout.addWidget(self.phi_initial_plot_figure_canvas, stretch=1)
+
+        self.psi_initial_plot_figure = plt.figure()
+        self.psi_initial_plot_figure_canvas = FigureCanvasQTAgg(self.psi_initial_plot_figure)
+        self.psi_initial_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)        
+        initial_plots_layout.addWidget(self.psi_initial_plot_figure_canvas, stretch=1)
+
+
+        # Resulting plots
+        self.phi_plot_figure = plt.figure()
+        self.phi_plot_figure_canvas = FigureCanvasQTAgg(self.phi_plot_figure)
+        self.phi_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        main_layout.addWidget(self.phi_plot_figure_canvas, stretch=1)
+        
+        self.psi_plot_figure = plt.figure()
+        self.psi_plot_figure_canvas = FigureCanvasQTAgg(self.psi_plot_figure)
+        self.psi_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        main_layout.addWidget(self.psi_plot_figure_canvas, stretch=1)
+        
+        self.result_plot_figure = plt.figure()
+        self.result_plot_figure_canvas = FigureCanvasQTAgg(self.result_plot_figure)
+        self.result_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        main_layout.addWidget(self.result_plot_figure_canvas, stretch=1)
+
+
+        self.refresh_input_plots(-5, 5, -2, 2, 'φ(x)', self.phi_input_plot_figure)
+        self.refresh_input_plots(-5, 5, -2, 2, 'ψ(x)', self.psi_input_plot_figure)
+        self.refresh_initial_plots()
         self.setLayout(main_layout)
         self.plot()
 
 
-    def refresh(self) -> None:
+    def refresh_initial_plots(self) -> None:
+        self.phi_initial_plot_figure.clear()
+        self.psi_initial_plot_figure.clear()
+
+        ax1 = self.phi_initial_plot_figure.add_subplot(111)
+        ax2 = self.psi_initial_plot_figure.add_subplot(111)
+        
+        ax1.set_title('φ(x)')
+        ax2.set_title('ψ(x)')
+
         left_constraint_type = self.left_constraint_choose.getType()
         right_constraint_type = self.right_constraint_choose.getType()
         left_constraint_x0 = float(self.left_x0_parameter.text().replace(',', '.'))
         right_constraint_x0 = float(self.right_x0_parameter.text().replace(',', '.'))
         assert right_constraint_x0 > left_constraint_x0
+        
+        self.phi_initial_plot_figure_canvas.draw()
+        self.psi_initial_plot_figure_canvas.draw()
+        self.refresh_resulting_plots()
+
+
+    def refresh_resulting_plots(self) -> None:
+        self.phi_plot_figure.clear()
+        self.psi_plot_figure.clear()
+        self.result_plot_figure.clear()
+
+        ax1 = self.phi_plot_figure.add_subplot(111)
+        ax2 = self.psi_plot_figure.add_subplot(111)
+        ax3 = self.result_plot_figure.add_subplot(111)
+        
+        ax1.set_title('Modification of the φ(x)')
+        ax1.legend()
+        ax2.set_title('Modification of the ψ(x)')
+        ax2.legend()
+        ax3.set_title('Result')
+        ax3.legend()
+        
+        self.phi_plot_figure_canvas.draw()
+        self.psi_plot_figure_canvas.draw()
+        self.result_plot_figure_canvas.draw()
 
 
     def refresh_left_constraint(self) -> None:
         self.left_x0_parameter.setEnabled('none' != self.left_constraint_choose.getType())
+        self.refresh_initial_plots()
 
     def refresh_right_constraint(self) -> None:
         self.right_x0_parameter.setEnabled('none' != self.right_constraint_choose.getType())
+        self.refresh_initial_plots()
 
     def refresh_input_plots(self, left: str, right: str, upper: str, bottom: str, function_name: str, plot: plt.Figure) -> None:
         left = float(left.replace(',', '.'))
@@ -236,54 +304,5 @@ class Window(QWidget):
         upper = float(upper.replace(',', '.'))
         bottom = float(bottom.replace(',', '.'))
         assert function_name in self.input_plots.keys()
-        self.input_plots[] = PlotInput(figure=plot, xlim=[left, right], ylim=[bottom, upper])
-        changeable_plot.finishedDrawing.connect(self.refresh)
-
-
-    def plot(self):
-        self.statistic_in_spheres.clear()
-        self.statistic_of_programms.clear()
-
-        ax1 = self.statistic_in_spheres.add_subplot(111)
-        ax2 = self.statistic_of_programms.add_subplot(111)
-
-
-        time_in_sphere = {bar: sum(data[1] / 3600 for data in log.logs.values() if data[0] == bar) for bar in BARS}
-
-        ax1.barh(list(time_in_sphere.keys()), list(time_in_sphere.values()), align='center', alpha=0.4, color=BAR1_COLORS)
-        ax1.plot([NORM_SCHEDULE[str(date.today().weekday())][bar] / 60 for bar in list(time_in_sphere.keys())], list(time_in_sphere.keys()), marker='D', linestyle='none', alpha=0.8, color='red')
-        #TODO make a plot-marker for changeable markers. Firstly I'll need to make a function, that will count those markers
-        if CONSUMPTION_RECALCULATOR:
-            recalculated_norm_list = [(NORM_SCHEDULE[str(date.today().weekday())][bar] - self.recalculated_norm[bar]['sum']) \
-                for bar in list(time_in_sphere.keys())]
-            recalculated_norm_list = [num / 60 if num > 0 else 0 for num in recalculated_norm_list]
-            ax1.plot(recalculated_norm_list, list(time_in_sphere.keys()), marker='D', linestyle='none', alpha=0.8, color='green')
-
-        ax1.set_xlabel('Hours spent')
-        ax1.set_title('The activity in thr monitored categories')
-
-
-        top_programms, bar_labels, time, bar_colors = [], [], [], []
-        for i in range(10):
-            try:
-                values = list(log.logs.values())[i]
-                top_programms.append(list(log.logs.keys())[i].strip())
-                if values[0] not in bar_labels: 
-                    bar_labels.append(values[0].strip())
-                else:
-                    bar_labels.append('_' + values[0].strip())
-                time.append(int(values[1]) / 3600)
-                bar_colors.append(self.color_data[values[0].strip()])
-            except IndexError:
-                break
-        ax2.bar(top_programms, time, label=bar_labels, color=bar_colors)
-        ax2.set_ylabel('')
-        ax2.set_title('')
-        ax2.legend(title='Type of the programm')
-
-
-        #ax3 changing? Is it better to make Simple QLables with data instead of making plot?
-
-
-        self.statistic_in_spheres_canvas.draw()
-        self.statistic_of_programms_canvas.draw()
+        self.input_plots[function_name] = PlotInput(figure=plot, xlim=[left, right], ylim=[bottom, upper])
+        self.input_plots[function_name].finishedDrawing.connect(self.refresh_initial_plots)
