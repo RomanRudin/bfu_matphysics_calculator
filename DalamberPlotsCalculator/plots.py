@@ -4,40 +4,47 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.widgets import Slider
 from typing import Optional
-from manual_drawn_plot import Segment
+from PyQt5.QtCore import pyqtSignal, QObject
+from manual_drawn_plot import Plot
 
 
-class TSlider(Slider):
-    def __init__(self, dependent: list[DynamicGraphic], *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        for dependent in dependent:
-            dependent.update()
+class TSlider(QObject):
+    valueChanged = pyqtSignal(int)
+    def __init__(self, ax, min_value, max_value, *args, **kwargs) -> None:
+        super().__init__()
+        self.slider = Slider(ax, 't', min_value, max_value, valinit=1, valstep=0.25, valfmt="%.2f")
+
+    def on_changed(self, val) -> None:
+        self.valueChanged.emit(int(val))
+
+    def val(self) -> float:
+        return float(self.slider.val)
 
 
 
 class DynamicGraphic():
-    def __init__(self, function: list[float, callable, callable], color: str = 'black', depending_on: Optional[list[DynamicGraphic]] = [], arythmetic_operators: Optional[list[callable]] = []) -> None:
-        self.function = function
-        assert len(arythmetic_operators) == len(depending_on)
-        self.depending_on = depending_on
-        self.arythmetic_operators = arythmetic_operators
-        self.x = np.arange(0, 1)
-        self.y = np.arange(0, 1)
-        self.color = color
-        self.line, = plt.plot(self.x, self.y, color=self.color)
+    def __init__(self, plot: dict['plots': list[Plot], 'dependancy': Optional[list[callable]]], color: str = 'black', ) -> None:
+        if plot['dependancy'] is None: assert len(plot['plots']) == 1 
+    #     assert len(arythmetic_operators) == len(depending_on)
+    #     self.depending_on = depending_on
+    #     self.arythmetic_operators = arythmetic_operators
+    #     self.x = np.arange(0, 1)
+    #     self.y = np.arange(0, 1)
+    #     self.color = color
+    #     self.line, = plt.plot(self.x, self.y, color=self.color)
 
-    def update(self, a: float, t: float, x_range: list[float, float]) -> None:
-        self.x = np.linspace(x_range[0], x_range[1], num=100 * (x_range[1] - x_range[0]))
-        self.y = np.array()
-        for x in self.x:
-            i = 0
-            while (self.function[i][2](x, a, t) < self.function[i][0]) and (i < len(self.function) - 1): i += 1
-            np.append(self.y, self.function[i][1](self.function[i][2](x, a, t)))
-        if self.depending_on:
-            for index, result in enumerate(self.depending_on):
-                self.y = self.arythmetic_operators[index](self.y, result.y)
-        self.line.set_xdata(self.x)
-        self.line.set_ydata(self.y)
+    # def update(self, a: float, t: float, x_range: list[float, float]) -> None:
+    #     self.x = np.linspace(x_range[0], x_range[1], num=100 * (x_range[1] - x_range[0]))
+    #     self.y = np.array()
+    #     for x in self.x:
+    #         i = 0
+    #         while (self.function[i][2](x, a, t) < self.function[i][0]) and (i < len(self.function) - 1): i += 1
+    #         np.append(self.y, self.function[i][1](self.function[i][2](x, a, t)))
+    #     if self.depending_on:
+    #         for index, result in enumerate(self.depending_on):
+    #             self.y = self.arythmetic_operators[index](self.y, result.y)
+    #     self.line.set_xdata(self.x)
+    #     self.line.set_ydata(self.y)
     
     @property
     def x(self) -> np.ndarray:
@@ -45,7 +52,6 @@ class DynamicGraphic():
     @property
     def y(self) -> np.ndarray:
         return self.y
-
     
 
 

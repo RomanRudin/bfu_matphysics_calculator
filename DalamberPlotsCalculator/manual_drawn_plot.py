@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 from matplotlib import path
 from matplotlib import ticker
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, QObject
 matplotlib.use('Qt5Agg')
 from dataclasses import dataclass
 from typing import Callable
@@ -30,21 +30,24 @@ class Segment:
     def __div__(self, value: float) -> Segment:
         return Segment(self.x0, self.x1, lambda x: self.function(x) / value)
     
-    def __add__(self, other: Segment) -> list[Segment]:
+    def __add__(self, other: Segment) -> Segment:
         assert self.x0 == other.x0 and self.x1 == other.x1
         return Segment(self.x0, other.x1, lambda x: self.function(x) + other.function(x))
-    def __sub__(self, other: Segment) -> list[Segment]:
+    def __sub__(self, other: Segment) -> Segment:
         assert self.x0 == other.x0 and self.x1 == other.x1
-        return Segment(self.x0, self.x1, lambda x: self.function(x) - other)
-    def __mul__(self, other: Segment) -> list[Segment]:
+        return Segment(self.x0, self.x1, lambda x: self.function(x) - other.function(x))
+    def __mul__(self, other: Segment) -> Segment:
         assert self.x0 == other.x0 and self.x1 == other.x1
         return Segment(self.x0, other.x1, lambda x: self.function(x) * other.function(x))
-    def __div__(self, other: Segment) -> list[Segment]:
+    def __div__(self, other: Segment) -> Segment:
         assert self.x0 == other.x0 and self.x1 == other.x1
         return Segment(self.x0, self.x1, lambda x: self.function(x) / other)
     
     def integrate(self, previous_sum: float) -> Segment:
         return Segment(self.x0, self.x1, lambda x: previous_sum + (x - self.x0) * self.function(self.x0) + 1/2 * (self.function(x)) * (x - self.x0))
+    
+    def __call__(self, x: float) -> float:
+        return self.function(x)
     
 
 class Plot:
@@ -80,9 +83,9 @@ class Plot:
         for start in  range(len(all_segments) - 1):
             current = Segment(all_segments[start], all_segments[start + 1], lambda x: 0)
             if all_segments[start] >= self.segments[0].x0 and all_segments[start + 1] <= self.segments[-1].x1:
-                current += Segment(all_segments[start], all_segments[start + 1], lambda x: self.segments[0].function(x))
+                current += Segment(all_segments[start], all_segments[start + 1], lambda x: self(x))
             if all_segments[start] >= other.segments[0].x0 and all_segments[start + 1] <= other.segments[-1].x1:
-                current += Segment(all_segments[start], all_segments[start + 1], lambda x: other.segments[0].function(x))
+                current += Segment(all_segments[start], all_segments[start + 1], lambda x: other(x))
             result.append(current)
         return Plot(result)
     def __sub__(self, other: Plot) -> Plot:
@@ -93,9 +96,9 @@ class Plot:
         for start in  range(len(all_segments) - 1):
             current = Segment(all_segments[start], all_segments[start + 1], lambda x: 1)
             if all_segments[start] >= self.segments[0].x0 and all_segments[start + 1] <= self.segments[-1].x1:
-                current *= Segment(all_segments[start], all_segments[start + 1], lambda x: self.segments[0].function(x))
+                current *= Segment(all_segments[start], all_segments[start + 1], lambda x: self(x))
             if all_segments[start] >= other.segments[0].x0 and all_segments[start + 1] <= other.segments[-1].x1:
-                current *= Segment(all_segments[start], all_segments[start + 1], lambda x: other.segments[0].function(x))
+                current *= Segment(all_segments[start], all_segments[start + 1], lambda x: other(x))
             result.append(current)
         return Plot(result)
     def __div__(self, other: Plot) -> Plot:
@@ -104,9 +107,9 @@ class Plot:
         for start in  range(len(all_segments) - 1):
             current = Segment(all_segments[start], all_segments[start + 1], lambda x: 1)
             if all_segments[start] >= self.segments[0].x0 and all_segments[start + 1] <= self.segments[-1].x1:
-                current *= Segment(all_segments[start], all_segments[start + 1], lambda x: self.segments[0].function(x))
+                current *= Segment(all_segments[start], all_segments[start + 1], lambda x: self(x))
             if all_segments[start] >= other.segments[0].x0 and all_segments[start + 1] <= other.segments[-1].x1:
-                current /= Segment(all_segments[start], all_segments[start + 1], lambda x: other.segments[0].function(x))
+                current /= Segment(all_segments[start], all_segments[start + 1], lambda x: other(x))
             result.append(current)
         return Plot(result)
 
@@ -117,26 +120,33 @@ class Plot:
             result.append(segment.integrate(previous_sum))
             previous_sum = result[-1].function(result[-1].x1)
         return Plot(result)
+    
+    def __call__(self, x: float) -> float:
+        i = 0
+        while x < self.segments[i].x0: i += 1
+        return self.segments[i](x)
+        
 
 
 
-class PlotInput():
+class PlotInput(QObject):
     finishedDrawing = pyqtSignal(bool)
 
-    # def __init__(self, figure:plt.Figure, xlim: list[int, int],  ylim: list[int, int] = [-2, 2]) -> None:
-    def __init__(self, xlim: list[int, int] = [-5, 5],  ylim: list[int, int] = [-2, 2]) -> None:
-        # self.figure = figure
+    def __init__(self, figure:plt.Figure, xlim: list[int, int],  ylim: list[int, int] = [-2, 2]) -> None:
+    # def __init__(self, xlim: list[int, int] = [-5, 5],  ylim: list[int, int] = [-2, 2]) -> None:
+        super().__init__()
+        self.figure = figure
         self.verts = [[xlim[0], 0], [xlim[1], 0]]
         self.codes = [path.Path.MOVETO, path.Path.LINETO]
         
-        self.fig, self.ax = plt.subplots(figsize=(10, 6))
+        self.ax = self.figure.add_subplot()
         self.xlim = xlim
         self.ylim = ylim
         self.redraw_axes()
-        self.fig.canvas.draw()
+        self.figure.canvas.draw()
         
-        self.fig.canvas.mpl_connect('button_press_event', self.on_click)
-        self.fig.canvas.mpl_connect('key_press_event', self.on_key_press)
+        self.figure.canvas.mpl_connect('button_press_event', self.on_click)
+        self.figure.canvas.mpl_connect('key_press_event', self.on_key_press)
         
     def on_click(self, event) -> None:
         if event.inaxes == self.ax:
@@ -151,7 +161,7 @@ class PlotInput():
             path_plot = matplotlib.path.Path(self.verts, self.codes)
             patch = patches.PathPatch(path_plot, facecolor='none')
             self.ax.add_patch(patch)
-            self.fig.canvas.draw()
+            self.figure.canvas.draw()
     
     def on_key_press(self, event) -> None:
         if event.key == 'enter' or event.key == 'space':
@@ -163,10 +173,10 @@ class PlotInput():
     def get_points(self) -> list[Segment] | list:
         if len(self.verts) <= 0:
             return []
-        array =  [Segment(self.verts[i][0], self.verts[i + 1][0],\
+        array =  Plot([Segment(self.verts[i][0], self.verts[i + 1][0],\
                     create_functions(self.verts[i][0], self.verts[i + 1][0], \
                     self.verts[i][1], self.verts[i + 1][1])) for i in range(len(self.verts) - 1) \
-                    if self.verts[i][0] != self.verts[i + 1][0]]
+                    if self.verts[i][0] != self.verts[i + 1][0]])
         print('functions:')
         print([(element * 2).function(1) for element in array])
         print('x0:')
