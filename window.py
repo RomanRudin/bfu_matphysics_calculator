@@ -1,7 +1,8 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QLabel, QLineEdit, QCheckBox, QGridLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QLabel, QLineEdit, QRadioButton, QGridLayout, QButtonGroup
+from PyQt5.QtCore import pyqtSignal
 import matplotlib.pyplot as plt
 from manual_drawn_plot import PlotInput
-from graphic import ThreePlotsFinal, ThreePlotsIntermediate, TSlider
+from plots import ThreePlotsFinal, ThreePlotsIntermediate, TSlider
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from __future__ import annotations
 
@@ -31,6 +32,44 @@ class Limiters(QWidget):
         main_layout.addWidget(limiters_text, stretch=1)
         main_layout.addLayout(limiters_layout, stretch=2)
         self.setLayout(main_layout)
+
+    
+class RadioButtons(QWidget):
+    constraintType = pyqtSignal(str)
+
+    def __init__(self) -> None:
+        super().__init__()
+        main_layout = QVBoxLayout()
+        button_group = QButtonGroup()
+        self.button_1 = QRadioButton('Infinite')
+        self.button_2 = QRadioButton('U|x=x0 = 0')
+        self.button_3 = QRadioButton('Ux|x=x0 = 0')
+        self.button_1.setChecked(True)
+        button_group.addButton(self.button_1)
+        button_group.addButton(self.button_2)
+        button_group.addButton(self.button_3)
+        self.button_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.button_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.button_3.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        main_layout.addWidget(button_group)
+        button_group.buttonClicked.connect(self.onTypeChange)
+        self.setLayout(main_layout)
+
+    def onTypeChange(self, button) -> None:
+        data = {
+            'Infinite': 'none',
+            'U|x=...': 'even',
+            'Ux|x=...': 'odd'
+        }
+        assert data[button.text()] is not None
+        self.constraintType.emit(data[button.text()])
+
+    def getType(self) -> str:
+        if self.button_2.isChecked():
+            return "even"
+        elif self.button_3.isChecked():
+            return "odd"
+        return "none"
 
 
 
@@ -126,11 +165,50 @@ class Window(QWidget):
 
         # Limiters of the string 
         limiting_layout = QHBoxLayout()
+        main_layout.addLayout(limiting_layout)
+        
+        left_constraint_layout = QVBoxLayout()
+        self.left_constraint_choose = RadioButtons()
+        self.left_constraint_choose.constraintType.connect(self.refresh)
+        self.left_constraint_choose.constraintType.connect(self.refresh_left_constraint)
+        left_x0_pararameter_layout = QHBoxLayout()
+        left_x0_pararameter_text = QLabel('x0 = ')
+        self.left_x0_parameter = QLineEdit('0')
+        self.left_x0_parameter.setPlaceholderText('Enter the x0 if you choose U|x=x0 = 0 or Ux|x=x0 = 0')
+        self.left_x0_parameter.textChanged.connect(self.refresh)
+        self.left_x0_parameter.setEnabled(False)
+        left_x0_pararameter_layout.addWidget(left_x0_pararameter_text, stretch=1)
+        left_x0_pararameter_layout.addWidget(self.left_x0_parameter, stretch=4)
+        self.left_constraint_choose.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        left_x0_pararameter_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.left_x0_parameter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        left_constraint_layout.addWidget(self.left_constraint_choose)
+        left_constraint_layout.addLayout(left_x0_pararameter_layout)
+        
+        right_constraint_layout = QVBoxLayout()
+        self.right_constraint_choose = RadioButtons()
+        self.right_constraint_choose.constraintType.connect(self.refresh)
+        self.right_constraint_choose.constraintType.connect(self.refresh_right_constraint)
+        right_x0_pararameter_layout = QHBoxLayout()
+        right_x0_pararameter_text = QLabel('x0 = ')
+        self.right_x0_parameter = QLineEdit('0')
+        self.right_x0_parameter.setPlaceholderText('Enter the x0 if you choose U|x=x0 = 0 or Ux|x=x0 = 0')
+        self.right_x0_parameter.textChanged.connect(self.refresh)
+        self.right_x0_parameter.setEnabled(False)
+        right_x0_pararameter_layout.addWidget(right_x0_pararameter_text, stretch=1)
+        right_x0_pararameter_layout.addWidget(self.right_x0_parameter, stretch=4)
+        self.right_constraint_choose.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        right_x0_pararameter_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.right_x0_parameter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        right_constraint_layout.addWidget(self.right_constraint_choose)
+        right_constraint_layout.addLayout(right_x0_pararameter_layout)
+
+        limiting_layout.addLayout(right_constraint_layout, stretch=1)
+        limiting_layout.addLayout(right_constraint_layout, stretch=1)
 
 
-        left_layout = QVBoxLayout()
-        left_layout.addLayout(main_settings_layout)
-        left_layout.addLayout(changes_layout)
 
         #right layout
         right_layout = QVBoxLayout()
@@ -175,8 +253,19 @@ class Window(QWidget):
         self.plot()
 
 
-    def refresh(self):
-        pass
+    def refresh(self) -> None:
+        left_constraint_type = self.left_constraint_choose.getType()
+        right_constraint_type = self.right_constraint_choose.getType()
+        left_constraint_x0 = float(self.left_x0_parameter.text().replace(',', '.'))
+        right_constraint_x0 = float(self.right_x0_parameter.text().replace(',', '.'))
+        assert right_constraint_x0 > left_constraint_x0
+
+
+    def refresh_left_constraint(self) -> None:
+        self.left_x0_parameter.setEnabled('none' != self.left_constraint_choose.getType())
+
+    def refresh_right_constraint(self) -> None:
+        self.right_x0_parameter.setEnabled('none' != self.right_constraint_choose.getType())
 
 
     def plot(self):
