@@ -3,9 +3,12 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 from matplotlib import path
 from matplotlib import ticker
+from PyQt5.QtCore import pyqtSignal
 matplotlib.use('Qt5Agg')
 
 class PlotInput():
+    finishedDrawing = pyqtSignal(bool)
+
     def __init__(self, figure:plt.Figure, xlim: list[int, int] = [-5, 5],  ylim: list[int, int] = [-2, 2]) -> None:
     # def __init__(self, xlim: list[int, int] = [-5, 5],  ylim: list[int, int] = [-2, 2]) -> None:
         self.figure = figure
@@ -37,12 +40,13 @@ class PlotInput():
             self.fig.canvas.draw()
     
     def on_key_press(self, event) -> None:
-        if event.key == 'enter':
+        if event.key == 'enter' or event.key == 'space':
+            self.finishedDrawing.emit(True)
             print("Finished collecting points.")
             print(f"Total points collected: {len(self.verts)}")
             return self.get_points()
     
-    def get_points(self) -> list[list] | list:
+    def get_points(self) -> list[list[int, callable]] | list:
         if len(self.verts) <= 0:
             return []
         return [[self.verts[i][0], \

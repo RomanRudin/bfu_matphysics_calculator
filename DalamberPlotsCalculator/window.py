@@ -8,17 +8,17 @@ from __future__ import annotations
 
 
 class Limiters(QWidget):
-    def __init__(self, parent: Window, function_name: str) -> None:
+    def __init__(self, parent: Window, function_name: str, plot: plt.Figure) -> None:
         super().__init__()
         main_layout = QVBoxLayout()
         limiters_text = QLabel(f'Limiters of plot for {function_name} function below:')
         limiters_layout = QGridLayout()
 
         left_limiter, right_limiter, upper_limiter, bottom_limiter = QLineEdit('Left limiter:'), QLineEdit('Right limiter:'), QLineEdit('Upper limiter:'), QLineEdit('Bottom limiter:')
-        left_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(left_limiter.text(), right_limiter.text(), upper_limiter.text(), bottom_limiter.text()))
-        right_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(left_limiter.text(), right_limiter.text(), upper_limiter.text(), bottom_limiter.text()))
-        upper_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(left_limiter.text(), right_limiter.text(), upper_limiter.text(), bottom_limiter.text()))
-        bottom_limiter.textChanged.connect(lambda _: parent.refresh_input_plot(left_limiter.text(), right_limiter.text(), upper_limiter.text(), bottom_limiter.text()))
+        left_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(left_limiter.text(), right_limiter.text(), upper_limiter.text(), bottom_limiter.text(), function_name, plot))
+        right_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(left_limiter.text(), right_limiter.text(), upper_limiter.text(), bottom_limiter.text(), function_name, plot))
+        upper_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(left_limiter.text(), right_limiter.text(), upper_limiter.text(), bottom_limiter.text(), function_name, plot))
+        bottom_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(left_limiter.text(), right_limiter.text(), upper_limiter.text(), bottom_limiter.text(), function_name, plot))
         limiters_layout.addWidget(left_limiter, 0, 0)
         limiters_layout.addWidget(right_limiter, 0, 1)
         limiters_layout.addWidget(upper_limiter, 1, 0)
@@ -80,6 +80,11 @@ class Window(QWidget):
 
 
         # Parameters phi and psi
+        self.input_plots = {
+            'φ(x)': None,
+            'ψ(x)': None
+        }
+
         functions_settings_layout = QHBoxLayout()
         main_layout.addLayout(functions_settings_layout)
 
@@ -88,19 +93,17 @@ class Window(QWidget):
         phi_text = QLabel('U|t=0 = ϕ(x) = ')
         self.phi_parameter = QLineEdit()
         self.phi_parameter.setPlaceholderText('Enter the ϕ(x) or draw it manually in the plot')  
-        # self.phi_parameter.textChanged.connect(lambda _: self.refresh(self.phi_parameter.text()))
         self.phi_parameter.textChanged.connect(self.refresh)
         phi_text_layout.addWidget(phi_text, stretch=1)
         phi_text_layout.addWidget(self.phi_parameter, stretch=5)
         self.phi_input_plot_figure = plt.figure()
         self.phi_input_plot_figure_canvas = FigureCanvasQTAgg(self.phi_input_plot_figure)
-        # self.phi_input_plot = PlotInput(self.phi_input_plot_figure) TODO updates inside refresh_input_plots
         phi_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.phi_parameter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.phi_input_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         phi_layout.addLayout(phi_text_layout, stretch=3)
-        phi_layout.addWidget(Limiters(self, 'φ(x)'), stretch=3)
+        phi_layout.addWidget(Limiters(self, 'φ(x)', self.psi_input_plot_figure), stretch=3)
         phi_layout.addWidget(self.phi_input_plot_figure_canvas, stretch=12)
 
         psi_layout = QVBoxLayout()
@@ -108,19 +111,17 @@ class Window(QWidget):
         psi_text = QLabel('Ut|t=0 = ψ(x) = ')
         self.psi_parameter = QLineEdit()
         self.psi_parameter.setPlaceholderText('Enter the ψ(x) or draw it manually in the plot')  
-        # self.psi_parameter.textChanged.connect(lambda _: self.refresh(self.psi_parameter.text()))
         self.psi_parameter.textChanged.connect(self.refresh)
         psi_text_layout.addWidget(psi_text, stretch=1)
         psi_text_layout.addWidget(self.psi_parameter, stretch=5)
-        self.phi_input_plot_figure = plt.figure()
-        self.phi_input_plot_figure_canvas = FigureCanvasQTAgg(self.phi_input_plot_figure)
-        # self.phi_input_plot = PlotInput(self.phi_input_plot_figure) TODO updates inside refresh_input_plots
+        self.psi_input_plot_figure = plt.figure()
+        self.psi_input_plot_figure_canvas = FigureCanvasQTAgg(self.phi_input_plot_figure)
         psi_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.psi_parameter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.phi_input_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.psi_input_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         psi_layout.addLayout(psi_text_layout, stretch=3)
-        phi_layout.addWidget(Limiters(self, 'ψ(x)'), stretch=3)
+        phi_layout.addWidget(Limiters(self, 'ψ(x)', self.psi_input_plot_figure), stretch=3)
         psi_layout.addWidget(self.psi_input_plot, stretch=12)
         
         functions_settings_layout.addLayout(phi_layout, stretch=1)
@@ -164,8 +165,8 @@ class Window(QWidget):
 
 
         # Limiters of the string 
-        limiting_layout = QHBoxLayout()
-        main_layout.addLayout(limiting_layout)
+        constraint_layout = QHBoxLayout()
+        main_layout.addLayout(constraint_layout)
         
         left_constraint_layout = QVBoxLayout()
         self.left_constraint_choose = RadioButtons()
@@ -205,50 +206,12 @@ class Window(QWidget):
         right_constraint_layout.addWidget(self.right_constraint_choose)
         right_constraint_layout.addLayout(right_x0_pararameter_layout)
 
-        limiting_layout.addLayout(right_constraint_layout, stretch=1)
-        limiting_layout.addLayout(right_constraint_layout, stretch=1)
+        constraint_layout.addLayout(right_constraint_layout, stretch=1)
+        constraint_layout.addLayout(right_constraint_layout, stretch=1)
 
 
 
-        #right layout
-        right_layout = QVBoxLayout()
-        main_statistic_layout = QVBoxLayout()
-
-        #plotting: plot for gaming, coding and learning
-        self.statistic_in_spheres = plt.figure()
-        self.statistic_in_spheres_canvas = FigureCanvasQTAgg(self.statistic_in_spheres)
-        main_statistic_layout.addWidget(self.statistic_in_spheres_canvas, stretch=3)
-
-        main_layout.addLayout(left_layout)
-        main_layout.addLayout(right_layout)
-
-        #plotting: plot for top 10 programms you waqsted time on
-        random_bar_colors = BAR2_COLORS.copy()
-        self.statistic_of_programms = plt.figure()
-        self.statistic_of_programms_canvas = FigureCanvasQTAgg(self.statistic_of_programms)
-        main_layout.addWidget(self.statistic_of_programms_canvas, stretch=3)
-
-        #choosing random colors for bars
-        self.color_data = {
-            'Game': random_bar_colors.pop(randint(0, len(random_bar_colors) - 1)),
-            'Entartainment': random_bar_colors.pop(randint(0, len(random_bar_colors) - 1)),
-            'Code': random_bar_colors.pop(randint(0, len(random_bar_colors) - 1)),
-            'Learning': random_bar_colors.pop(randint(0, len(random_bar_colors) - 1)),
-            'Browser': random_bar_colors.pop(randint(0, len(random_bar_colors) - 1)),
-            'Social Network': random_bar_colors.pop(randint(0, len(random_bar_colors) - 1)),
-            'Tool': random_bar_colors.pop(randint(0, len(random_bar_colors) - 1)),
-        }
-
-
-        if CONSUMPTION_RECALCULATOR:
-            self.recalculated_norm = norm_recalculating()
-            for bar in BARS:
-                changes = QListWidget()
-                changes_layout.addWidget(changes)
-                changes.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                changes.addItems(value for key, value in self.recalculated_norm[bar].items() if key != 'sum' )
-            main_statistic_layout.addLayout(changes_layout)
-
+        self.
         self.setLayout(main_layout)
         self.plot()
 
@@ -266,6 +229,15 @@ class Window(QWidget):
 
     def refresh_right_constraint(self) -> None:
         self.right_x0_parameter.setEnabled('none' != self.right_constraint_choose.getType())
+
+    def refresh_input_plots(self, left: str, right: str, upper: str, bottom: str, function_name: str, plot: plt.Figure) -> None:
+        left = float(left.replace(',', '.'))
+        right = float(right.replace(',', '.'))    
+        upper = float(upper.replace(',', '.'))
+        bottom = float(bottom.replace(',', '.'))
+        assert function_name in self.input_plots.keys()
+        self.input_plots[] = PlotInput(figure=plot, xlim=[left, right], ylim=[bottom, upper])
+        changeable_plot.finishedDrawing.connect(self.refresh)
 
 
     def plot(self):

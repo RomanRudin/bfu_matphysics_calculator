@@ -1,4 +1,4 @@
-from window import Window
+from DalamberPlotsCalculator.window import Window
 from sys import argv, exit
 from PyQt5.QtWidgets import QApplication
 from matplotlib import pyplot as plt
