@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 from matplotlib import path
 from matplotlib import ticker
-from PyQt5.QtCore import pyqtSignal, QObject
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from PyQt5.QtCore import pyqtSignal, QObject, Qt
 matplotlib.use('Qt5Agg')
 from dataclasses import dataclass
 from typing import Callable
@@ -19,7 +20,7 @@ def create_functions(x_current, x_next, y_current, y_next) -> Callable[..., floa
 class Segment:
     x0: float
     x1: float
-    function: callable
+    function: Callable
     
     def __add__(self, value: float) -> Segment:
         return Segment(self.x0, self.x1, lambda x: self.function(x) + value)
@@ -125,50 +126,79 @@ class Plot:
         i = 0
         while x < self.segments[i].x0: i += 1
         return self.segments[i](x)
+
+    def shift(self, shift_amount: float) -> Plot:
+        new_segments = []
+        for segment in self.segments:
+            new_segment = Segment(
+                segment.x0 + shift_amount,
+                segment.x1 + shift_amount,
+                lambda x, seg=segment, shift=shift_amount: seg(x - shift)
+            )
+            new_segments.append(new_segment)
+        return Plot(new_segments)
         
 
+
+# class MovedPlot: TODO
+#     def __init__(self, plot: Plot, t: float) -> None:
+#         self.plot = plot
+#         self.move = move
 
 
 class PlotInput(QObject):
     finishedDrawing = pyqtSignal(bool)
 
-    def __init__(self, figure:plt.Figure, xlim: list[int, int],  ylim: list[int, int] = [-2, 2]) -> None:
+    def __init__(self, figure:plt.Figure, canvas: FigureCanvasQTAgg, xlim: list[int, int],  ylim: list[int, int] = [-2, 2]) -> None:
     # def __init__(self, xlim: list[int, int] = [-5, 5],  ylim: list[int, int] = [-2, 2]) -> None:
         super().__init__()
         self.figure = figure
         self.verts = [[xlim[0], 0], [xlim[1], 0]]
         self.codes = [path.Path.MOVETO, path.Path.LINETO]
+        self.canvas = canvas
         
-        self.ax = self.figure.add_subplot()
+        self.ax = self.figure.add_subplot(111)
         self.xlim = xlim
         self.ylim = ylim
         self.redraw_axes()
-        self.figure.canvas.draw()
+
+        self.canvas.setFocusPolicy(Qt.StrongFocus)
+        self.canvas.setFocus()
         
-        self.figure.canvas.mpl_connect('button_press_event', self.on_click)
-        self.figure.canvas.mpl_connect('key_press_event', self.on_key_press)
+        self.canvas.mpl_connect('button_press_event', self.on_click)
+        self.canvas.mpl_connect('key_press_event', self.on_key_press)
         
     def on_click(self, event) -> None:
         if event.inaxes == self.ax:
             self.redraw_axes()
-            print(f"({event.xdata:.2f}, {event.ydata:.2f})")
-            print(f"({(float(event.xdata) * 16 + 2)}, {float(event.ydata) * 16 + 2})")
+            # print(f"({event.xdata:.2f}, {event.ydata:.2f})")
+            # print(f"({(float(event.xdata) * 16 + 2)}, {float(event.ydata) * 16 + 2})")
             x, y = (float(event.xdata) * 16 + 2) // 4 / 4, (float(event.ydata) * 16 + 2) // 4 / 4
-            print(f"Point added: ({x:.2f}, {y:.2f})")
+            # print(f"Point added: ({x:.2f}, {y:.2f})")
             self.codes.append(matplotlib.path.Path.LINETO)
             self.verts.append([x, y])
             self.verts = sorted(self.verts, key=lambda p: p[0])
-            path_plot = matplotlib.path.Path(self.verts, self.codes)
-            patch = patches.PathPatch(path_plot, facecolor='none')
-            self.ax.add_patch(patch)
-            self.figure.canvas.draw()
+            self.refresh()
+            self.canvas.setFocus()
+        
+    def refresh(self) -> None:
+        self.redraw_axes()
+        path_plot = matplotlib.path.Path(self.verts, self.codes)
+        patch = patches.PathPatch(path_plot, facecolor='none')
+        self.ax.add_patch(patch)
+        self.canvas.draw()
     
     def on_key_press(self, event) -> None:
-        if event.key == 'enter' or event.key == 'space':
-            # self.finishedDrawing.emit(True)
+        if event.key in ['enter', ' ']:
+            self.finishedDrawing.emit(True)
             print("Finished collecting points.")
             print(f"Total points collected: {len(self.verts)}")
             return self.get_points()
+        if event.key == 'backspace':
+            self.verts.pop()
+            self.codes.pop()
+            self.refresh()
+            return
     
     def get_points(self) -> list[Segment] | list:
         if len(self.verts) <= 0:
@@ -177,12 +207,13 @@ class PlotInput(QObject):
                     create_functions(self.verts[i][0], self.verts[i + 1][0], \
                     self.verts[i][1], self.verts[i + 1][1])) for i in range(len(self.verts) - 1) \
                     if self.verts[i][0] != self.verts[i + 1][0]])
-        print('functions:')
-        print([(element * 2).function(1) for element in array])
-        print('x0:')
-        print([element.x0 for element in array])
-        print('x1:')
-        print([element.x1 for element in array])
+        return array
+        # print('functions:')
+        # print([(element * 2).function(1) for element in array])
+        # print('x0:')
+        # print([element.x0 for element in array])
+        # print('x1:')
+        # print([element.x1 for element in array])
         
     
     def show(self) -> None:
@@ -199,13 +230,13 @@ class PlotInput(QObject):
         self.ax.set_xlim(self.xlim[0]-0.1, self.xlim[1]+0.1)
         self.ax.set_ylim(self.ylim[0]-0.1, self.ylim[1]+0.1)
 
-if __name__ == "__main__":
-    picker = PlotInput()
-    picker.show()
-    points_array = picker.get_points()
-    
-    if len(points_array) > 0:
-        print("All collected points with functions of lines from point to point:")
-        print(points_array)
-    else:
-        print("No points were collected.")
+# if __name__ == "__main__":
+    # picker = PlotInput()
+    # picker.show()
+    # points_array = picker.get_points()
+    # 
+    # if len(points_array) > 0:
+        # print("All collected points with functions of lines from point to point:")
+        # print(points_array)
+    # else:
+        # print("No points were collected.")
