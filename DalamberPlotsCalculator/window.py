@@ -18,15 +18,16 @@ class Limiters(QWidget):
         limiters_text = QLabel(f'Limiters of plot for {function_name} function below:')
         limiters_layout = QGridLayout()
 
-        left_limiter, right_limiter, upper_limiter, bottom_limiter = QLineEdit('Left limiter:'), QLineEdit('Right limiter:'), QLineEdit('Upper limiter:'), QLineEdit('Bottom limiter:')
-        left_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(float(left_limiter.text().replace(',', '.')), float(right_limiter.text().replace(',', '.')), float(upper_limiter.text().replace(',', '.')), float(bottom_limiter.text().replace(',', '.')), function_name, plot))
-        right_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(float(left_limiter.text().replace(',', '.')), float(right_limiter.text().replace(',', '.')), float(upper_limiter.text().replace(',', '.')), float(bottom_limiter.text().replace(',', '.')), function_name, plot))
-        upper_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(float(left_limiter.text().replace(',', '.')), float(right_limiter.text().replace(',', '.')), float(upper_limiter.text().replace(',', '.')), float(bottom_limiter.text().replace(',', '.')), function_name, plot))
-        bottom_limiter.textChanged.connect(lambda _: parent.refresh_input_plots(float(left_limiter.text().replace(',', '.')), float(right_limiter.text().replace(',', '.')), float(upper_limiter.text().replace(',', '.')), float(bottom_limiter.text().replace(',', '.')), function_name, plot))
-        limiters_layout.addWidget(left_limiter, 0, 0)
-        limiters_layout.addWidget(right_limiter, 0, 1)
-        limiters_layout.addWidget(upper_limiter, 1, 0)
-        limiters_layout.addWidget(bottom_limiter, 1, 1)
+        left_limiter_text, right_limiter_text, upper_limiter_text, bottom_limiter_text = QLabel('Left limiter:'), QLabel('Right limiter:'), QLabel('Upper limiter:'), QLabel('Bottom limiter:')
+        left_limiter, right_limiter, upper_limiter, bottom_limiter = QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit()
+        left_limiter.textChanged.connect(lambda _: parent.refresh_input_plot(float(left_limiter.text().replace(',', '.')), float(right_limiter.text().replace(',', '.')), float(upper_limiter.text().replace(',', '.')), float(bottom_limiter.text().replace(',', '.')), function_name, plot))
+        right_limiter.textChanged.connect(lambda _: parent.refresh_input_plot(float(left_limiter.text().replace(',', '.')), float(right_limiter.text().replace(',', '.')), float(upper_limiter.text().replace(',', '.')), float(bottom_limiter.text().replace(',', '.')), function_name, plot))
+        upper_limiter.textChanged.connect(lambda _: parent.refresh_input_plot(float(left_limiter.text().replace(',', '.')), float(right_limiter.text().replace(',', '.')), float(upper_limiter.text().replace(',', '.')), float(bottom_limiter.text().replace(',', '.')), function_name, plot))
+        bottom_limiter.textChanged.connect(lambda _: parent.refresh_input_plot(float(left_limiter.text().replace(',', '.')), float(right_limiter.text().replace(',', '.')), float(upper_limiter.text().replace(',', '.')), float(bottom_limiter.text().replace(',', '.')), function_name, plot))
+        limiters_layout.addWidget(left_limiter_text, 0, 0), limiters_layout.addWidget(left_limiter, 1, 0), 
+        limiters_layout.addWidget(right_limiter_text, 2, 0), limiters_layout.addWidget(right_limiter, 3, 0) 
+        limiters_layout.addWidget(upper_limiter_text, 0, 1), limiters_layout.addWidget(upper_limiter, 1, 1)
+        limiters_layout.addWidget(bottom_limiter_text, 2, 1), limiters_layout.addWidget(bottom_limiter, 3, 1)
         limiters_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         left_limiter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         right_limiter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -97,7 +98,7 @@ class Window(QWidget):
         }
 
         functions_settings_layout = QHBoxLayout()
-        main_layout.addLayout(functions_settings_layout)
+        main_layout.addLayout(functions_settings_layout, stretch=15)
 
         phi_layout = QVBoxLayout()
         phi_text_layout = QHBoxLayout()
@@ -140,8 +141,8 @@ class Window(QWidget):
 
 
         # Parameters a, t and f(x, t)
-        main_settings_layout = QVBoxLayout()
-        main_layout.addLayout(main_settings_layout)
+        main_settings_layout = QHBoxLayout()
+        main_layout.addLayout(main_settings_layout, stretch=3)
 
         equation_text_layout = QHBoxLayout()
         main_settings_layout.addLayout(equation_text_layout, stretch=1)
@@ -160,7 +161,7 @@ class Window(QWidget):
 
         self.t_slider_figure = plt.figure()
         self.t_slider_figure_canvas = FigureCanvasQTAgg(self.t_slider_figure)
-        main_settings_layout.addWidget(self.t_slider_figure_canvas, stretch=1)
+        main_settings_layout.addWidget(self.t_slider_figure_canvas, stretch=5)
         self.t_slider_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         f_layout = QHBoxLayout()
@@ -179,7 +180,7 @@ class Window(QWidget):
 
         # Limiters of the string 
         constraint_layout = QHBoxLayout()
-        main_layout.addLayout(constraint_layout)
+        main_layout.addLayout(constraint_layout, stretch=7)
         
         left_constraint_layout = QVBoxLayout()
         self.left_constraint_choose = RadioButtons()
@@ -223,7 +224,7 @@ class Window(QWidget):
 
         # Initial plots
         initial_plots_layout = QHBoxLayout()
-        main_layout.addLayout(initial_plots_layout)
+        main_layout.addLayout(initial_plots_layout, stretch=20)
 
         self.phi_initial_plot_figure = plt.figure()
         self.phi_initial_plot_figure_canvas = FigureCanvasQTAgg(self.phi_initial_plot_figure)
@@ -237,20 +238,22 @@ class Window(QWidget):
 
 
         # Resulting plots
+        resulting_plots_layout = QHBoxLayout()
+        main_layout.addLayout(resulting_plots_layout, stretch=20)
+
         self.phi_plot_figure = plt.figure()
-        self.phi_plot_figure_canvas = FigureCanvasQTAgg(self.phi_plot_figure)
-        self.phi_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        main_layout.addWidget(self.phi_plot_figure_canvas, stretch=1)
-        
         self.psi_plot_figure = plt.figure()
+        self.phi_plot_figure_canvas = FigureCanvasQTAgg(self.phi_plot_figure)
         self.psi_plot_figure_canvas = FigureCanvasQTAgg(self.psi_plot_figure)
+        resulting_plots_layout.addWidget(self.phi_plot_figure_canvas)
+        resulting_plots_layout.addWidget(self.psi_plot_figure_canvas)
+        self.phi_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.psi_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        main_layout.addWidget(self.psi_plot_figure_canvas, stretch=1)
         
         self.result_plot_figure = plt.figure()
         self.result_plot_figure_canvas = FigureCanvasQTAgg(self.result_plot_figure)
+        main_layout.addWidget(self.result_plot_figure_canvas, stretch=20)
         self.result_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        main_layout.addWidget(self.result_plot_figure_canvas, stretch=1)
 
         self.refresh_slider(10)
         self.refresh_input_plot(-5, 5, -2, 2, 'φ(x)', self.phi_input_plot_figure, self.phi_initial_plot_figure_canvas)
@@ -271,9 +274,9 @@ class Window(QWidget):
         assert function_name in self.input_plots.keys()
         figure.clear()
         ax = figure.add_subplot(111)
-        y = eval(function)
+        # y = eval(function)
         x = np.linspace(self.range[0][0], self.range[0][1], (self.range[0][1] - self.range[0][0]) * 100)
-        y = [y(dot) for dot in x]
+        y = [(dot) for dot in x]
         self.input_plots[function_name], = ax.plot(x, y)
         self.refresh_initial_plots()
         canvas.draw()
