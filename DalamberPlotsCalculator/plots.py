@@ -1,39 +1,22 @@
 from __future__ import annotations
-import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider
 from typing import Optional
 from matplotlib import ticker
+from matplotlib import patches
+from matplotlib import path
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from PyQt5.QtCore import pyqtSignal, QObject
-from manual_drawn_plot import Plot
-from dataclasses import dataclass
+from PyQt5.QtCore import pyqtSignal, QObject, Qt
+from datastructures import Plot, Range, Segment
 from typing import Callable, List
-
-@dataclass
-class Range:
-    x0: float
-    x1: float
-    y0: float
-    y1: float
-
-    def x_length(self) -> float: return self.x1 - self.x0
-    def x_range(self) -> list[float, float]: return [self.x0, self.x1]
-    def y_range(self) -> list[float, float]: return [self.y0, self.y1]
+import numpy as np
+# matplotlib.use('Qt5Agg')
 
 
-class TSlider(QObject):
-    valueChanged = pyqtSignal(int)
-    def __init__(self, ax, min_value, max_value, *args, **kwargs) -> None:
-        super().__init__()
-        self.slider = Slider(ax, 't', min_value, max_value, valinit=0, valstep=0.25, valfmt="%.2f")
-        self.slider.on_changed(lambda _: self.on_changed(self.slider.val))
+def create_functions(x_current, x_next, y_current, y_next) -> Callable[..., float]:
+    def _(x) -> float:
+        return ((y_next - y_current) / abs(x_next - x_current)) * (x - x_current) + y_current
+    return _
 
-    def on_changed(self, val) -> None:
-        self.valueChanged.emit(int(val))
-
-    def val(self) -> float:
-        return float(self.slider.val)
 
 
 
@@ -73,7 +56,92 @@ class DynamicPlot():
 
     def get_plot(self) -> Plot:
         return self.plot
+
+
+
+
+class PlotInput(QObject):
+    finishedDrawing = pyqtSignal(bool)
+
+    def __init__(self, figure:plt.Figure, canvas: FigureCanvasQTAgg, range: Range, initial_plot: Plot=None) -> None:
+    # def __init__(self, xlim: list[int, int] = [-5, 5],  ylim: list[int, int] = [-2, 2]) -> None:
+        super().__init__()
+        self.figure = figure
+        self.verts = [[range.x0, 0], [range.x1, 0]]
+        self.codes = [path.Path.MOVETO, path.Path.LINETO]
+        self.canvas = canvas
+        
+        self.ax = self.figure.add_subplot(111)
+        self.range = range
+        self.redraw_axes()
+        if initial_plot is not None:
+            self.initial_draw(initial_plot)
+
+        self.canvas.setFocusPolicy(Qt.StrongFocus)
+        self.canvas.setFocus()
+        
+        self.canvas.mpl_connect('button_press_event', self.on_click)
+        self.canvas.mpl_connect('key_press_event', self.on_key_press)
+
+    def initial_draw(self, plot: Plot) -> None:
+        self.verts = [[self.range.x0, 0]] + [[segment.x1, segment(segment.x1)] for segment in plot.segments] [[self.range.x1, 0]]
+        self.codes = [path.Path.MOVETO, path.Path.LINETO] + [path.Path.LINETO] * len(plot.segments)
+        self.refresh()
+        
+    def on_click(self, event) -> None:
+        if event.inaxes == self.ax:
+            self.redraw_axes()
+            x, y = (float(event.xdata) * 4 + 1) // 2 / 2, (float(event.ydata) * 4 + 1) // 2 / 2
+            self.codes.append(path.Path.LINETO)
+            self.verts.append([x, y])
+            self.verts = sorted(self.verts, key=lambda p: p[0])
+            self.refresh()
+            self.canvas.setFocus()
+        
+    def refresh(self) -> None:
+        self.redraw_axes()
+        path_plot = path.Path(self.verts, self.codes)
+        patch = patches.PathPatch(path_plot, facecolor='none')
+        self.ax.add_patch(patch)
+        self.canvas.draw()
     
+    def on_key_press(self, event) -> None:
+        if event.key in ['enter', ' ']:
+            self.finishedDrawing.emit(True)
+            return self.get_plot()
+        if event.key == 'backspace':
+            if len(self.verts) <= 2: return
+            self.verts.pop(-2)
+            self.codes.pop(-2)
+            self.refresh()
+            return
+    
+    def get_plot(self) -> list[Segment] | list:
+        if len(self.verts) <= 0:
+            return []
+        array =  Plot([Segment(self.verts[i][0], self.verts[i + 1][0],\
+                    create_functions(self.verts[i][0], self.verts[i + 1][0], \
+                    self.verts[i][1], self.verts[i + 1][1])) for i in range(len(self.verts) - 1) \
+                    if self.verts[i][0] != self.verts[i + 1][0]])
+        return array
+        
+    
+    def show(self) -> None:
+        plt.show()
+
+    def redraw_axes(self) -> None:
+        self.ax.clear()
+        self.ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+        self.ax.set_title("Click on the plot to add points. Press 'enter' to finish.")
+        self.ax.set_xlabel("X")
+        self.ax.set_ylabel("Y")
+        self.ax.grid(True, alpha=0.2)
+        self.ax.set_xlim(self.range.x0-0.1, self.range.x1+0.1)
+        self.ax.set_ylim(self.range.y0-0.1, self.range.y1+0.1)
+
+    
+
 
 class SinglePlot:
     def __init__(self, figure: plt.Figure, canvas: FigureCanvasQTAgg, main_plot: Plot, 
@@ -86,11 +154,11 @@ class SinglePlot:
         self.colors = colors
         self.dynamic_plots = []
         self.ax = self.figure.add_subplot(111)
-        self.ax.set_xlim(range.x0, range.x1)
-        self.ax.set_ylim(range.y0, range.y1)
+        self.ax.set_xlim(range.x0-0.1, range.x1+0.1)
+        self.ax.set_ylim(range.y0-0.1, range.y1+0.1)
         self.ax.grid(True, alpha=0.2)
-        self.ax.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
-        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
+        self.ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
         self.ax.set_title(title)
         self.plot = DynamicPlot(self.ax, main_plot, color=self.colors[0])
         if self.function is not None:
@@ -131,11 +199,15 @@ class WavePlot:
         self.canvas.draw()
     
     def refresh(self, a: float, t: float, range: Range) -> None:
-        self.ax.set_xlim(range.x0, range.x1)
-        self.ax.set_ylim(range.y0, range.y1)
+        if self.plot2.plot.start > (range.x0 - a * t):
+            self.plot2.plot = self.plot2.plot.extend(2 * a * t)
+        if self.plot1.plot.end < (range.x1 + a * t):
+            self.plot1.plot = self.plot1.plot.extend(2 * a * t)
+        self.ax.set_xlim(range.x0-0.1, range.x1+0.1)
+        self.ax.set_ylim(range.y0-0.1, range.y1+0.1)
         self.ax.grid(True, alpha=0.2)
-        self.ax.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
-        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
+        self.ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
         plot_plus = self.plot1.refresh(range, a=a, t=t)
         plot_minus = self.plot2.refresh(range, a=a, t=-t)
         self.plot3.line.remove()
@@ -162,11 +234,11 @@ class ResultPlot:
         self.colors = colors
         self.dynamic_plots = []
         self.ax = self.figure.add_subplot(111)
-        self.ax.set_xlim(range.x0, range.x1)
-        self.ax.set_ylim(range.y0, range.y1)
+        self.ax.set_xlim(range.x0-0.1, range.x1+0.1)
+        self.ax.set_ylim(range.y0-0.1, range.y1+0.1)
         self.ax.grid(True, alpha=0.2)
-        self.ax.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
-        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
+        self.ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
         self.ax.set_title(title)
 
         self.plot1 = DynamicPlot(self.ax, plot1, color=self.colors[0])
@@ -188,7 +260,6 @@ class ResultPlot:
         if self.plot3_exists:
             return [self.plot1.get_plot(), self.plot2.get_plot(), self.plot3.get_plot(), self.plot_result.get_plot()]
         return [self.plot1.get_plot(), self.plot2.get_plot(), self.plot_result.get_plot()]
-
 
 
 # class ThreeDynamicPlots():

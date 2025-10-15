@@ -1,90 +1,11 @@
 from __future__ import annotations
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QLabel, QLineEdit, QRadioButton, QGridLayout, QButtonGroup
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QLabel, QLineEdit
 import matplotlib.pyplot as plt
 import numpy as np
-from manual_drawn_plot import PlotInput, Plot, Segment
-from plots import TSlider, WavePlot, Range, SinglePlot, ResultPlot
+from plots import WavePlot, Range, SinglePlot, ResultPlot, PlotInput
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-
-
-
-class Limiters(QWidget):
-    limitersChanged = pyqtSignal(float, float, float, float, float)
-
-    def __init__(self, parent: Window) -> None:
-        super().__init__()
-        main_layout = QVBoxLayout()
-        limiters_text = QLabel(f'Limiters of plot for functions below:')
-        limiters_layout = QGridLayout()
-
-        left_limiter_text, right_limiter_text, upper_limiter_text, bottom_limiter_text = QLabel('Left limiter:'), QLabel('Right limiter:'), QLabel('Upper limiter:'), QLabel('Bottom limiter:')
-        self.left_limiter, self.right_limiter, self.upper_limiter, self.bottom_limiter = QLineEdit('0'), QLineEdit('5'), QLineEdit('-1'), QLineEdit('1')
-        self.left_limiter.editingFinished.connect(parent.refresh_input_plots)
-        self.right_limiter.editingFinished.connect(parent.refresh_input_plots)
-        self.upper_limiter.editingFinished.connect(parent.refresh_input_plots)
-        self.bottom_limiter.editingFinished.connect(parent.refresh_input_plots)
-        limiters_layout.addWidget(left_limiter_text, 0, 0), limiters_layout.addWidget(self.left_limiter, 1, 0), 
-        limiters_layout.addWidget(right_limiter_text, 2, 0), limiters_layout.addWidget(self.right_limiter, 3, 0) 
-        limiters_layout.addWidget(upper_limiter_text, 0, 1), limiters_layout.addWidget(self.upper_limiter, 1, 1)
-        limiters_layout.addWidget(bottom_limiter_text, 2, 1), limiters_layout.addWidget(self.bottom_limiter, 3, 1)
-        limiters_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.left_limiter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.right_limiter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.upper_limiter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.bottom_limiter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        main_layout.addWidget(limiters_text, stretch=1)
-        main_layout.addLayout(limiters_layout, stretch=2)
-        self.setLayout(main_layout)
-    
-    def get_limiters(self, resulting: bool = False) -> Range:
-        if resulting:
-            return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.upper_limiter.text().replace(',', '.')) * 2, float(self.bottom_limiter.text().replace(',', '.')) * 2)
-        return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.upper_limiter.text().replace(',', '.')), float(self.bottom_limiter.text().replace(',', '.')))
-
-
-    
-
-class RadioButtons(QWidget):
-    constraintType = pyqtSignal(str)
-
-    def __init__(self) -> None:
-        super().__init__()
-        main_layout = QVBoxLayout()
-        button_group = QButtonGroup()
-        self.button_1 = QRadioButton('Infinite')
-        self.button_2 = QRadioButton('U|x=x0 = 0')
-        self.button_3 = QRadioButton('Ux|x=x0 = 0')
-        self.button_1.setChecked(True)
-        button_group.addButton(self.button_1)
-        button_group.addButton(self.button_2)
-        button_group.addButton(self.button_3)
-        self.button_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.button_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.button_3.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        button_group.buttonReleased.connect(self.onTypeChange)
-        main_layout.addWidget(self.button_1)
-        main_layout.addWidget(self.button_2)
-        main_layout.addWidget(self.button_3)
-        self.setLayout(main_layout)
-
-    def onTypeChange(self, button) -> None:
-        print("onTypeChange!")
-        data = {
-            'Infinite': 'none',
-            'U|x=x0 = 0': 'even', 
-            'Ux|x=x0 = 0': 'odd'
-        }
-        assert data[button.text()] is not None
-        self.constraintType.emit(data[button.text()])
-
-    def getType(self) -> str:
-        if self.button_2.isChecked():
-            return "even"
-        elif self.button_3.isChecked():
-            return "odd"
-        return "none"
+from datastructures import Range
+from widgets import Limiters, RadioButtons, TSlider, MAX_T
 
 
 
@@ -135,7 +56,7 @@ class Window(QWidget):
         phi_text = QLabel('U|t=0 = ϕ(x) = ')
         self.phi_parameter = QLineEdit()
         self.phi_parameter.setPlaceholderText('Enter the ϕ(x) or draw it manually in the plot')  
-        self.phi_parameter.textChanged.connect(lambda _: self.draw_initial_plot('φ(x)', self.phi_parameter.text(), self.phi_input_plot_figure, self.phi_input_plot_figure_canvas))
+        self.phi_parameter.editingFinished.connect(lambda _: self.draw_initial_plot('φ(x)', self.phi_parameter.text(), self.phi_input_plot_figure, self.phi_input_plot_figure_canvas))
         phi_text_layout.addWidget(phi_text, stretch=1)
         phi_text_layout.addWidget(self.phi_parameter, stretch=5)
         self.phi_input_plot_figure = plt.figure()
@@ -152,7 +73,7 @@ class Window(QWidget):
         psi_text = QLabel('Ut|t=0 = ψ(x) = ')
         self.psi_parameter = QLineEdit()
         self.psi_parameter.setPlaceholderText('Enter the ψ(x) or draw it manually in the plot')  
-        self.psi_parameter.textChanged.connect(lambda _: self.draw_initial_plot('φ(x)', self.psi_parameter.text(), self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas))
+        self.psi_parameter.editingFinished.connect(lambda _: self.draw_initial_plot('φ(x)', self.psi_parameter.text(), self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas))
         psi_text_layout.addWidget(psi_text, stretch=1)
         psi_text_layout.addWidget(self.psi_parameter, stretch=5)
         self.psi_input_plot_figure = plt.figure()
@@ -177,12 +98,12 @@ class Window(QWidget):
         first_part = QLabel('Utt = ')
         self.a_parameter = QLineEdit('1')
         self.a_parameter.setPlaceholderText('a ** 2')
-        # self.a_parameter.textChanged.connect(lambda _: self.refresh(self.a_parameter.text()))
-        self.a_parameter.textChanged.connect(self.refresh_resulting_plots)
+        # self.a_parameter.editingFinished.connect(lambda _: self.refresh(self.a_parameter.text()))
+        self.a_parameter.editingFinished.connect(self.refresh_resulting_plots)
         second_part = QLabel('Uxx + ')
         self.f_function = QLineEdit('0')
         self.f_function.setEnabled(False) #! TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
-        self.f_function.textChanged.connect(self.refresh_resulting_plots)
+        self.f_function.editingFinished.connect(self.refresh_resulting_plots)
         equation_text_layout.addWidget(first_part, stretch=3)
         equation_text_layout.addWidget(self.a_parameter, stretch=1)
         equation_text_layout.addWidget(second_part, stretch=3)
@@ -209,7 +130,7 @@ class Window(QWidget):
         left_x0_pararameter_text = QLabel('x0 = ')
         self.left_x0_parameter = QLineEdit('0')
         self.left_x0_parameter.setPlaceholderText('Enter the x0 if you choose U|x=x0 = 0 or Ux|x=x0 = 0')
-        self.left_x0_parameter.textChanged.connect(self.refresh_initial_plots)
+        self.left_x0_parameter.editingFinished.connect(self.refresh_initial_plots)
         self.left_x0_parameter.setEnabled(False)
         left_x0_pararameter_layout.addWidget(left_x0_pararameter_text, stretch=1)
         left_x0_pararameter_layout.addWidget(self.left_x0_parameter, stretch=4)
@@ -227,7 +148,7 @@ class Window(QWidget):
         right_x0_pararameter_text = QLabel('x0 = ')
         self.right_x0_parameter = QLineEdit('1')
         self.right_x0_parameter.setPlaceholderText('Enter the x0 if you choose U|x=x0 = 0 or Ux|x=x0 = 0')
-        self.right_x0_parameter.textChanged.connect(self.refresh_initial_plots)
+        self.right_x0_parameter.editingFinished.connect(self.refresh_initial_plots)
         self.right_x0_parameter.setEnabled(False)
         right_x0_pararameter_layout.addWidget(right_x0_pararameter_text, stretch=1)
         right_x0_pararameter_layout.addWidget(self.right_x0_parameter, stretch=4)
@@ -311,12 +232,12 @@ class Window(QWidget):
 
 
     def refresh_input_plots(self) -> None:
-        range = self.functions_limiter.get_limiters(resulting=True)
+        range = self.functions_limiter.get_limiters()
         self.phi_input_plot_figure.clear()
         self.psi_input_plot_figure.clear()
-        self.input_plots['φ(x)'] = PlotInput(figure=self.phi_input_plot_figure, canvas=self.phi_input_plot_figure_canvas, xlim=[range.x0, range.x1], ylim=[range.y0, range.y1])
+        self.input_plots['φ(x)'] = PlotInput(figure=self.phi_input_plot_figure, canvas=self.phi_input_plot_figure_canvas, range=range, initial_plot=self.initial_plots_data['φ(x)'])
         self.input_plots['φ(x)'].finishedDrawing.connect(self.refresh_initial_plots)
-        self.input_plots['ψ(x)'] = PlotInput(figure=self.psi_input_plot_figure, canvas=self.psi_input_plot_figure_canvas, xlim=[range.x0, range.x1], ylim=[range.y0, range.y1])
+        self.input_plots['ψ(x)'] = PlotInput(figure=self.psi_input_plot_figure, canvas=self.psi_input_plot_figure_canvas, range=range, initial_plot=self.initial_plots_data['ψ(x)'])
         self.input_plots['ψ(x)'].finishedDrawing.connect(self.refresh_initial_plots)
         self.refresh_initial_plots()
 
@@ -446,7 +367,7 @@ class Window(QWidget):
         self.resulting_plots['resulting φ(x)'] = WavePlot(self.phi_plot_figure, self.phi_plot_figure_canvas, \
                 self.initial_plots_data['φ(x)'], 'Resulting φ(x)', lambda plot1, plot2, a: 1/2 * (plot1 + plot2), colors=['red', 'yellow', 'orange'])
         self.resulting_plots['resulting Ф(x)'] = WavePlot(self.psi_plot_figure, self.psi_plot_figure_canvas, \
-                self.initial_plots_data['Ф(x)'], 'Resulting Фx)', lambda plot1, plot2, a: (1/(2 * a)) * (plot1 - plot2), colors=['violet', 'cyan', 'blue'])
+                self.initial_plots_data['Ф(x)'], 'Resulting Фx)', lambda plot1, plot2, a: (1/(2 * a)) * (plot2 - plot1), colors=['violet', 'cyan', 'blue'])
         # self.resulting_plots['resulting f(x, t)'] = WavePlot(self.f_plot_figure,     self.f_plot_figure_canvas, \
         #         self.initial_plots_data['f(x)'], 'Resulting f(x, t)', lambda plot1, plot2: plot1 - plot2, colors=['blue', 'red', 'green']).get_plots()[2]
         self.refresh_resulting_plots()
