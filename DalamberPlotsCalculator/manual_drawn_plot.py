@@ -12,7 +12,8 @@ from typing import Callable
 
 def create_functions(x_current, x_next, y_current, y_next) -> Callable[..., float]:
     def _(x) -> float:
-        return (y_next - y_current) / abs(x_next - x_current) * x + y_current
+        print(x_current, x_next, y_current, y_next, ((y_next - y_current) / abs(x_next - x_current)), ((y_next - y_current) / abs(x_next - x_current)) + y_current, )
+        return ((y_next - y_current) / abs(x_next - x_current)) * (x - x_current) + y_current
     return _
 
 
@@ -49,6 +50,8 @@ class Segment:
     
     def __call__(self, x: float) -> float:
         return self.function(x)
+    def __str__(self) -> str:
+        return f"Segment(start = {self.x0}, end = {self.x1}, function({self.x0}) = {self.function(self.x0)}, function({self.x1}) = {self.function(self.x1)})"''
     
 
 class Plot:
@@ -124,7 +127,8 @@ class Plot:
     
     def __call__(self, x: float) -> float:
         i = 0
-        while x < self.segments[i].x0: i += 1
+        while not self.segments[i].x0 <= x <= self.segments[i].x1: i += 1
+        # print(i, x, self.segments[i])
         return self.segments[i](x)
 
     def shift(self, shift_amount: float) -> Plot:
@@ -137,7 +141,10 @@ class Plot:
             )
             new_segments.append(new_segment)
         return Plot(new_segments)
-        
+    def __str__(self) -> str:
+        return f"Plot(length = {len(self.segments)},\n{'\n'.join(str(segment) for segment in self.segments)}\n)"
+    def __len__(self) -> Plot:
+        return self.segments[-1].x1 - self.segments[0].x0
 
 
 # class MovedPlot: TODO
@@ -191,16 +198,17 @@ class PlotInput(QObject):
     def on_key_press(self, event) -> None:
         if event.key in ['enter', ' ']:
             self.finishedDrawing.emit(True)
-            print("Finished collecting points.")
-            print(f"Total points collected: {len(self.verts)}")
-            return self.get_points()
+            # print("Finished collecting points.")
+            # print(f"Total points collected: {len(self.verts)}")
+            return self.get_plot()
         if event.key == 'backspace':
-            self.verts.pop()
-            self.codes.pop()
+            if len(self.verts) <= 2: return
+            self.verts.pop(-2)
+            self.codes.pop(-2)
             self.refresh()
             return
     
-    def get_points(self) -> list[Segment] | list:
+    def get_plot(self) -> list[Segment] | list:
         if len(self.verts) <= 0:
             return []
         array =  Plot([Segment(self.verts[i][0], self.verts[i + 1][0],\
@@ -222,11 +230,11 @@ class PlotInput(QObject):
     def redraw_axes(self) -> None:
         self.ax.clear()
         self.ax.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
-        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(0.25))
+        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
         self.ax.set_title("Click on the plot to add points. Press 'enter' to finish.")
         self.ax.set_xlabel("X")
         self.ax.set_ylabel("Y")
-        self.ax.grid(True, alpha=0.3)
+        self.ax.grid(True, alpha=0.1)
         self.ax.set_xlim(self.xlim[0]-0.1, self.xlim[1]+0.1)
         self.ax.set_ylim(self.ylim[0]-0.1, self.ylim[1]+0.1)
 
