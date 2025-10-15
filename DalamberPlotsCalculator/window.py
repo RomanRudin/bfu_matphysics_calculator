@@ -4,7 +4,7 @@ from PyQt5.QtCore import pyqtSignal
 import matplotlib.pyplot as plt
 import numpy as np
 from manual_drawn_plot import PlotInput, Plot, Segment
-from plots import TSlider, WavePlot, Range, SinglePlot
+from plots import TSlider, WavePlot, Range, SinglePlot, ResultPlot
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
 
@@ -20,10 +20,10 @@ class Limiters(QWidget):
 
         left_limiter_text, right_limiter_text, upper_limiter_text, bottom_limiter_text = QLabel('Left limiter:'), QLabel('Right limiter:'), QLabel('Upper limiter:'), QLabel('Bottom limiter:')
         self.left_limiter, self.right_limiter, self.upper_limiter, self.bottom_limiter = QLineEdit('0'), QLineEdit('5'), QLineEdit('-1'), QLineEdit('1')
-        self.left_limiter.textChanged.connect(parent.refresh_input_plots)
-        self.right_limiter.textChanged.connect(parent.refresh_input_plots)
-        self.upper_limiter.textChanged.connect(parent.refresh_input_plots)
-        self.bottom_limiter.textChanged.connect(parent.refresh_input_plots)
+        self.left_limiter.editingFinished.connect(parent.refresh_input_plots)
+        self.right_limiter.editingFinished.connect(parent.refresh_input_plots)
+        self.upper_limiter.editingFinished.connect(parent.refresh_input_plots)
+        self.bottom_limiter.editingFinished.connect(parent.refresh_input_plots)
         limiters_layout.addWidget(left_limiter_text, 0, 0), limiters_layout.addWidget(self.left_limiter, 1, 0), 
         limiters_layout.addWidget(right_limiter_text, 2, 0), limiters_layout.addWidget(self.right_limiter, 3, 0) 
         limiters_layout.addWidget(upper_limiter_text, 0, 1), limiters_layout.addWidget(self.upper_limiter, 1, 1)
@@ -102,10 +102,23 @@ class Window(QWidget):
             'φ(x)': None,
             'ψ(x)': None
         }
+        self.resulting_plots = {
+            'resulting φ(x)': None, 
+            'resulting Ф(x)': None,
+            'resulting f(x)': None
+        }
 
-        self.plots_data = {
+        self.initial_plots_data = {
             'φ(x)': None,
-            'ψ(x)': None
+            'ψ(x)': None,
+            'Ф(x)': None,
+            'f(x)': None
+        }
+
+        self.resulting_plots_data = {
+            'resulting φ(x)': None,
+            'resulting Ф(x)': None,
+            'resulting f(x)': None
         }
 
         settings_layout = QVBoxLayout()
@@ -281,7 +294,7 @@ class Window(QWidget):
         self.t_slider_figure.clear()
         ax = self.t_slider_figure.add_subplot(111)
         self.t_slider = TSlider(ax, 0, max_value)
-        self.t_slider.valueChanged.connect(self.refresh_parameter_changed)
+        self.t_slider.valueChanged.connect(self.refresh_resulting_plots)
 
         
     def draw_initial_plot(self, function_name: str, function: str, figure: plt.Figure, canvas: FigureCanvasQTAgg) -> None: #TODO
@@ -339,8 +352,8 @@ class Window(QWidget):
     #     assert right_constraint_x0 <= range.x1
     #     assert right_constraint_x0 > left_constraint_x0
 
-    #     self.plots_data['φ(x)'] = self.input_plots['φ(x)'].get_plot()
-    #     self.plots_data['ψ(x)'] = self.input_plots['ψ(x)'].get_plot()
+    #     self.initial_plots_data['φ(x)'] = self.input_plots['φ(x)'].get_plot()
+    #     self.initial_plots_data['ψ(x)'] = self.input_plots['ψ(x)'].get_plot()
 
     #     def extend_plot(plot: Plot, left_bound: float, left_type: str, right_bound: float, right_type: str) -> Plot:
     #         left_extension = [] 
@@ -408,9 +421,6 @@ class Window(QWidget):
         self.psi_initial_plot_figure.clear()
 
         range = self.functions_limiter.get_limiters()
-        a = float(self.a_parameter.text().replace(',', '.'))
-        assert a > 0
-        a = a ** 0.5
         
         left_constraint_type = self.left_constraint_choose.getType()
         right_constraint_type = self.right_constraint_choose.getType()
@@ -418,46 +428,44 @@ class Window(QWidget):
         right_constraint_x0 = float(self.right_x0_parameter.text().replace(',', '.'))
         assert right_constraint_x0 > left_constraint_x0
 
-        SinglePlot(self.phi_initial_plot_figure, self.phi_initial_plot_figure_canvas, self.input_plots['φ(x)'].get_plot(), a, range, 'Initial φ(x)', colors=['orange'])
-        SinglePlot(self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas, self.input_plots['ψ(x)'].get_plot(), a, range, 'Initial ψ(x)', lambda plot: plot.integrate(), colors=['black', 'blue'])
+        self.initial_plots_data['φ(x)'] = self.input_plots['φ(x)'].get_plot()
+        self.initial_plots_data['ψ(x)'] = self.input_plots['ψ(x)'].get_plot()
 
-        self.refresh_resulting_plots()
+        SinglePlot(self.phi_initial_plot_figure, self.phi_initial_plot_figure_canvas, self.input_plots['φ(x)'].get_plot(), range, 'Initial φ(x)', colors=['orange'])
+        self.initial_plots_data['Ф(x)'] = SinglePlot(self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas, self.input_plots['ψ(x)'].get_plot(), range, 'Initial ψ(x), Ф(x)', lambda plot: plot.integrate(), colors=['black', 'blue']).get_plots()[1]
 
+        self.initialize_resulting_plots()
 
-    def refresh_parameter_changed(self) -> None:
-        self.phi_plot_figure
-
-
-    def refresh_resulting_plots(self) -> None:
+    
+    def initialize_resulting_plots(self) -> None:
         self.phi_plot_figure.clear()
         self.psi_plot_figure.clear()
         self.f_plot_figure.clear()
         self.result_plot_figure.clear()
 
-        if self.a_parameter.text() != '':
-            a = float(self.a_parameter.text().replace(',', '.')) ** 0.5
-        else:
-            a = 1
+        self.resulting_plots['resulting φ(x)'] = WavePlot(self.phi_plot_figure, self.phi_plot_figure_canvas, \
+                self.initial_plots_data['φ(x)'], 'Resulting φ(x)', lambda plot1, plot2, a: 1/2 * (plot1 + plot2), colors=['red', 'yellow', 'orange'])
+        self.resulting_plots['resulting Ф(x)'] = WavePlot(self.psi_plot_figure, self.psi_plot_figure_canvas, \
+                self.initial_plots_data['Ф(x)'], 'Resulting Фx)', lambda plot1, plot2, a: (1/(2 * a)) * (plot1 - plot2), colors=['violet', 'cyan', 'blue'])
+        # self.resulting_plots['resulting f(x, t)'] = WavePlot(self.f_plot_figure,     self.f_plot_figure_canvas, \
+        #         self.initial_plots_data['f(x)'], 'Resulting f(x, t)', lambda plot1, plot2: plot1 - plot2, colors=['blue', 'red', 'green']).get_plots()[2]
+        self.refresh_resulting_plots()
+
+    def refresh_resulting_plots(self) -> None:
+        self.result_plot_figure.clear()
+
+        range = self.functions_limiter.get_limiters()
+        a = float(self.a_parameter.text().replace(',', '.'))
+        assert a > 0
+        a = a ** 0.5
         t = self.t_slider.val()
 
-        ax1 = self.phi_plot_figure.add_subplot(111)
-        ax2 = self.psi_plot_figure.add_subplot(111)
-        ax3 = self.f_plot_figure.add_subplot(111)
-        ax4 = self.result_plot_figure.add_subplot(111)
-        
-        ax1.set_title('Modification of the φ(x)')
-        ax1.legend()
-        ax2.set_title('Modification of the ψ(x)')
-        ax2.legend()
-        ax3.set_title('Modification of the f(x, t)')
-        ax3.legend()
-        ax4.set_title('Result')
-        ax4.legend()
-        
-        self.phi_plot_figure_canvas.draw()
-        self.psi_plot_figure_canvas.draw()
-        self.f_plot_figure_canvas.draw()
-        self.result_plot_figure_canvas.draw()
+        for function_name in ['φ(x)', 'Ф(x)']:
+            self.resulting_plots[f'resulting {function_name}'].refresh(a, t, range)
+            self.resulting_plots_data[f'resulting {function_name}'] = self.resulting_plots[f'resulting {function_name}'].get_plots()[2]
+        ResultPlot(self.result_plot_figure, self.result_plot_figure_canvas, \
+                self.resulting_plots_data['resulting φ(x)'], self.resulting_plots_data['resulting Ф(x)'], 
+                range, 'Result', lambda plot1, plot2: plot1 + plot2, colors=['orange', 'blue', 'green'])
 
     
     def find_range(self) -> Range:

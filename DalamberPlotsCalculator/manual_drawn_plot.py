@@ -12,7 +12,7 @@ from typing import Callable
 
 def create_functions(x_current, x_next, y_current, y_next) -> Callable[..., float]:
     def _(x) -> float:
-        print(x_current, x_next, y_current, y_next, ((y_next - y_current) / abs(x_next - x_current)), ((y_next - y_current) / abs(x_next - x_current)) + y_current, )
+        # print(x_current, x_next, y_current, y_next, ((y_next - y_current) / abs(x_next - x_current)), ((y_next - y_current) / abs(x_next - x_current)) + y_current, )
         return ((y_next - y_current) / abs(x_next - x_current)) * (x - x_current) + y_current
     return _
 
@@ -23,49 +23,132 @@ class Segment:
     x1: float
     function: Callable
     
-    def __add__(self, value: float) -> Segment:
-        return Segment(self.x0, self.x1, lambda x: self.function(x) + value)
-    def __sub__(self, value: float) -> Segment:
-        return Segment(self.x0, self.x1, lambda x: self.function(x) - value)
-    def __mul__(self, value: float) -> Segment:
-        return Segment(self.x0, self.x1, lambda x: self.function(x) * value)
-    def __div__(self, value: float) -> Segment:
-        return Segment(self.x0, self.x1, lambda x: self.function(x) / value)
+    def __add__(self, other: float | Segment) -> Segment:
+        if type(other) == Segment: 
+            assert self.x0 == other.x0 and self.x1 == other.x1
+            return Segment(self.x0, other.x1, lambda x: self(x) + other(x))
+        return Segment(self.x0, self.x1, lambda x: self(x) + other)
+    def __sub__(self, other: float | Segment) -> Segment:
+        if type(other) == Segment: 
+            assert self.x0 == other.x0 and self.x1 == other.x1
+            return Segment(self.x0, self.x1, lambda x: self(x) - other(x))
+        return Segment(self.x0, self.x1, lambda x: self(x) - other)
+    def __mul__(self, other: float | Segment) -> Segment:
+        if type(other) == Segment: 
+            assert self.x0 == other.x0 and self.x1 == other.x1
+            return Segment(self.x0, other.x1, lambda x: self(x) * other(x))
+        return Segment(self.x0, self.x1, lambda x: self(x) * other)
+    def __div__(self, other: float | Segment) -> Segment:
+        if type(other) == Segment: 
+            assert self.x0 == other.x0 and self.x1 == other.x1
+            return Segment(self.x0, self.x1, lambda x: self(x) / other(x))
+        return Segment(self.x0, self.x1, lambda x: self(x) / other)
+    def __radd__(self, other: float | Segment) -> Segment:
+        if type(other) == Segment: 
+            return other + self
+        return Segment(self.x0, self.x1, lambda x: self(x) + other)
+    def __rsub__(self, other: float | Segment) -> Segment:
+        if type(other) == Segment: 
+            return other - self
+        return Segment(self.x0, self.x1, lambda x: other - self(x))
+    def __rmul__(self, other: float | Segment) -> Segment:
+        if type(other) == Segment: 
+            return other * self
+        return Segment(self.x0, self.x1, lambda x: self(x) * other)
+    def __rdiv__(self, other: float | Segment) -> Segment:
+        if type(other) == Segment: 
+            return other / self
+        return Segment(self.x0, self.x1, lambda x: other / self(x))
     
-    def __add__(self, other: Segment) -> Segment:
-        assert self.x0 == other.x0 and self.x1 == other.x1
-        return Segment(self.x0, other.x1, lambda x: self.function(x) + other.function(x))
-    def __sub__(self, other: Segment) -> Segment:
-        assert self.x0 == other.x0 and self.x1 == other.x1
-        return Segment(self.x0, self.x1, lambda x: self.function(x) - other.function(x))
-    def __mul__(self, other: Segment) -> Segment:
-        assert self.x0 == other.x0 and self.x1 == other.x1
-        return Segment(self.x0, other.x1, lambda x: self.function(x) * other.function(x))
-    def __div__(self, other: Segment) -> Segment:
-        assert self.x0 == other.x0 and self.x1 == other.x1
-        return Segment(self.x0, self.x1, lambda x: self.function(x) / other)
-    
-    def integrate(self, previous_sum: float) -> Segment:
-        return Segment(self.x0, self.x1, lambda x: previous_sum + (x - self.x0) * self.function(self.x0) + 1/2 * (self.function(x)) * (x - self.x0))
+    def integrate(self, previous_sum: float) -> Plot:
+        result = []
+        sums = [previous_sum]
+        if self.x0 < 0:
+            if self.x1 <= 0:
+                result.append(Segment(self.x0, self.x1, lambda x: sums[0] - 1/2 * (self(x)) * (x - self.x0)))
+                sums.append(sums[0] - (self.x1 - self.x0) * self(self.x0) - 1/2 * (self(self.x1)) * (self.x1 - self.x0))
+            else:
+                result.append(Segment(self.x0, 0, lambda x: sums[0] - 1/2 * (self(x)) * (x - self.x0)))
+                sums.append(sums[0] - 1/2 * (self(0)) * (0 - self.x0))
+                result.append(Segment(0, self.x1, lambda x: sums[1] + 1/2 * (self(x)) * (x - 0)))
+                sums.append(sums[1] + 1/2 * (self(self.x1)) * (self.x1 - 0))
+        else:
+            result.append(Segment(self.x0, self.x1, lambda x: sums[0] + 1/2 * (self(x)) * (x - self.x0)))
+            sums.append(sums[0] + 1/2 * (self(self.x1)) * (self.x1 - self.x0))
+        return Plot(result), sums[-1]
     
     def __call__(self, x: float) -> float:
         return self.function(x)
     def __str__(self) -> str:
-        return f"Segment(start = {self.x0}, end = {self.x1}, function({self.x0}) = {self.function(self.x0)}, function({self.x1}) = {self.function(self.x1)})"''
+        return f"Segment(start = {self.x0}, end = {self.x1}, function({self.x0}) = {self(self.x0)}, function({self.x1}) = {self(self.x1)})"''
     
 
 class Plot:
     def __init__(self, segments: list[Segment]) -> None:
         self.segments = segments
 
-    def __add__(self, value: float) -> Plot:
-        return Plot([segment + value for segment in self.segments])
-    def __sub__(self, value: float) -> None:
-        return Plot([segment - value for segment in self.segments])
-    def __mul__(self, value: float) -> Plot:
-        return Plot([segment * value for segment in self.segments])
-    def __div__(self, value: float) -> None:
-        return Plot([segment / value for segment in self.segments])
+    def __add__(self, other: float | Plot) -> Plot:
+        if type(other) == Plot:
+            if not self.segments: return other
+            if not other.segments: return self
+            result = []
+            all_segments = self.__split__(other)
+            print(all_segments, self.segments[0], other.segments[-1])
+            for i in range(len(all_segments) - 1):
+                current = Segment(all_segments[i], all_segments[i + 1], lambda x: 0)
+                if all_segments[i] >= self.segments[0].x0 and all_segments[i + 1] <= self.segments[-1].x1:
+                    current += Segment(all_segments[i], all_segments[i + 1], lambda x: self(x))
+                if all_segments[i] >= other.segments[0].x0 and all_segments[i + 1] <= other.segments[-1].x1:
+                    current += Segment(all_segments[i], all_segments[i + 1], lambda x: other(x))
+                result.append(current)
+            return Plot(result)
+        return Plot([segment + other for segment in self.segments])
+    def __sub__(self, other: float | Plot) -> Plot:
+        if type(other) == Plot: 
+            return self + other * (-1)
+        return Plot([segment - other for segment in self.segments])
+    def __mul__(self, other: float | Plot) -> Plot:
+        if type(other) == Plot: 
+            result = []
+            all_segments = self.__split__(other)
+            for i in  range(len(all_segments) - 1):
+                current = Segment(all_segments[i], all_segments[i + 1], lambda x: 1)
+                if all_segments[i] >= self.segments[0].x0 and all_segments[i + 1] <= self.segments[-1].x1:
+                    current *= Segment(all_segments[i], all_segments[i + 1], lambda x: self(x))
+                if all_segments[i] >= other.segments[0].x0 and all_segments[i + 1] <= other.segments[-1].x1:
+                    current *= Segment(all_segments[i], all_segments[i + 1], lambda x: other(x))
+                result.append(current)
+            return Plot(result)
+        return Plot([segment * other for segment in self.segments])
+    def __div__(self, other: float | Plot) -> Plot:
+        if type(other) == Plot: 
+            result = []
+            all_segments = self.__split__(other)
+            for i in  range(len(all_segments) - 1):
+                current = Segment(all_segments[i], all_segments[i + 1], lambda x: 1)
+                if all_segments[i] >= self.segments[0].x0 and all_segments[i + 1] <= self.segments[-1].x1:
+                    current *= Segment(all_segments[i], all_segments[i + 1], lambda x: self(x))
+                if all_segments[i] >= other.segments[0].x0 and all_segments[i + 1] <= other.segments[-1].x1:
+                    current /= Segment(all_segments[i], all_segments[i + 1], lambda x: other(x))
+                result.append(current)
+            return Plot(result)
+        return Plot([segment / other for segment in self.segments])
+    def __radd__(self, other: float | Plot) -> Plot:
+        if type(other) == Plot: \
+            return other + self
+        return Plot([segment + other for segment in self.segments])
+    def __rsub__(self, other: float | Plot) -> Plot:
+        if type(other) == Plot: 
+            return other - self
+        return Plot([segment - other for segment in self.segments])
+    def __rmul__(self, other: float | Plot) -> Plot:
+        if type(other) == Plot: 
+            return other * self
+        return Plot([segment * other for segment in self.segments])
+    def __rdiv__(self, other: float | Plot) -> Plot:
+        if type(other) == Plot: 
+            return other / self
+        return Plot([segment / other for segment in self.segments])
     
     def __split__(self, other: Plot) -> list[float]:
         all_segments = []
@@ -80,52 +163,19 @@ class Plot:
             if segment.x0 not in all_segments:
                 all_segments.append(segment.x1)
         return all_segments
-    
-    def __add__(self, other: Plot) -> Plot:
-        result = []
-        all_segments = self.__split__(other)
-        for start in  range(len(all_segments) - 1):
-            current = Segment(all_segments[start], all_segments[start + 1], lambda x: 0)
-            if all_segments[start] >= self.segments[0].x0 and all_segments[start + 1] <= self.segments[-1].x1:
-                current += Segment(all_segments[start], all_segments[start + 1], lambda x: self(x))
-            if all_segments[start] >= other.segments[0].x0 and all_segments[start + 1] <= other.segments[-1].x1:
-                current += Segment(all_segments[start], all_segments[start + 1], lambda x: other(x))
-            result.append(current)
-        return Plot(result)
-    def __sub__(self, other: Plot) -> Plot:
-        return self + (-1) * other
-    def __mul__(self, other: Plot) -> Plot:
-        result = []
-        all_segments = self.__split__(other)
-        for start in  range(len(all_segments) - 1):
-            current = Segment(all_segments[start], all_segments[start + 1], lambda x: 1)
-            if all_segments[start] >= self.segments[0].x0 and all_segments[start + 1] <= self.segments[-1].x1:
-                current *= Segment(all_segments[start], all_segments[start + 1], lambda x: self(x))
-            if all_segments[start] >= other.segments[0].x0 and all_segments[start + 1] <= other.segments[-1].x1:
-                current *= Segment(all_segments[start], all_segments[start + 1], lambda x: other(x))
-            result.append(current)
-        return Plot(result)
-    def __div__(self, other: Plot) -> Plot:
-        result = []
-        all_segments = self.__split__(other)
-        for start in  range(len(all_segments) - 1):
-            current = Segment(all_segments[start], all_segments[start + 1], lambda x: 1)
-            if all_segments[start] >= self.segments[0].x0 and all_segments[start + 1] <= self.segments[-1].x1:
-                current *= Segment(all_segments[start], all_segments[start + 1], lambda x: self(x))
-            if all_segments[start] >= other.segments[0].x0 and all_segments[start + 1] <= other.segments[-1].x1:
-                current /= Segment(all_segments[start], all_segments[start + 1], lambda x: other(x))
-            result.append(current)
-        return Plot(result)
 
     def integrate(self) -> Plot:
         result = []
         previous_sum = 0
         for segment in self.segments:
-            result.append(segment.integrate(previous_sum))
-            previous_sum = result[-1].function(result[-1].x1)
+            integrated, previous_sum = segment.integrate(previous_sum)
+            for segment in integrated.segments:
+                result.append(segment)
         return Plot(result)
     
     def __call__(self, x: float) -> float:
+        if not self.segments: return 0
+        if x < self.segments[0].x0 or x > self.segments[-1].x1: return 0
         i = 0
         while not self.segments[i].x0 <= x <= self.segments[i].x1: i += 1
         # print(i, x, self.segments[i])
@@ -234,7 +284,7 @@ class PlotInput(QObject):
         self.ax.set_title("Click on the plot to add points. Press 'enter' to finish.")
         self.ax.set_xlabel("X")
         self.ax.set_ylabel("Y")
-        self.ax.grid(True, alpha=0.1)
+        self.ax.grid(True, alpha=0.2)
         self.ax.set_xlim(self.xlim[0]-0.1, self.xlim[1]+0.1)
         self.ax.set_ylim(self.ylim[0]-0.1, self.ylim[1]+0.1)
 

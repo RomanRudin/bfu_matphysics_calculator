@@ -26,7 +26,7 @@ class TSlider(QObject):
     valueChanged = pyqtSignal(int)
     def __init__(self, ax, min_value, max_value, *args, **kwargs) -> None:
         super().__init__()
-        self.slider = Slider(ax, 't', min_value, max_value, valinit=1, valstep=0.25, valfmt="%.2f")
+        self.slider = Slider(ax, 't', min_value, max_value, valinit=0, valstep=0.25, valfmt="%.2f")
         self.slider.on_changed(lambda _: self.on_changed(self.slider.val))
 
     def on_changed(self, val) -> None:
@@ -45,19 +45,18 @@ class DynamicPlot():
         self.plot = plot
         self.line, = ax.plot(self.x, self.y, color=self.color)
 
-    def refresh(self, a: float, range: Range, t: Optional[float] = None) -> Optional[Plot]:
+    def refresh(self, range: Range, a: Optional[float] = None, t: Optional[float] = None) -> Optional[Plot]:
         self.x = np.linspace(range.x0, range.x1, num=int(100 * range.x_length()))
         if t is not None and t != 0:
             shifted_plot = self.plot.shift(a * t)
             self.y = np.array([shifted_plot(x) for x in self.x])
         else:
             self.y = np.array([self.plot(x) for x in self.x])
-        print(self.plot)
         self.line.set_xdata(self.x)
         self.line.set_ydata(self.y)
-        if t is not None:
+        if t is not None and t != 0:
             return shifted_plot
-        return None
+        return self.plot
     
     @property
     def x(self) -> np.ndarray:
@@ -71,72 +70,124 @@ class DynamicPlot():
     @y.setter
     def y(self, y: np.ndarray) -> None:
         self._y = y
+
+    def get_plot(self) -> Plot:
+        return self.plot
     
 
 class SinglePlot:
-    def __init__(self, figure: plt.Figure, canvas: FigureCanvasQTAgg, main_plot: Plot, a: float,  
-                 range: Range, title: str, function: Optional[Callable[[Plot, Plot], Plot]] = None,
+    def __init__(self, figure: plt.Figure, canvas: FigureCanvasQTAgg, main_plot: Plot, 
+                 range: Range, title: str, function: Optional[Callable[[Plot], Plot]] = None,
                  colors: List[str] = ['blue', 'red']) -> None:
         self.figure = figure
         self.canvas = canvas
         self.main_plot = main_plot
-        self.a = a
         self.function = function
         self.colors = colors
         self.dynamic_plots = []
         self.ax = self.figure.add_subplot(111)
         self.ax.set_xlim(range.x0, range.x1)
         self.ax.set_ylim(range.y0, range.y1)
-        self.ax.grid(True, alpha=0.1)
+        self.ax.grid(True, alpha=0.2)
         self.ax.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
         self.ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
         self.ax.set_title(title)
         self.plot = DynamicPlot(self.ax, main_plot, color=self.colors[0])
         if self.function is not None:
             self.plot2 = DynamicPlot(self.ax, self.function(main_plot), color=self.colors[1])
-            self.plot2.refresh(a, range)
-        self.plot.refresh(a, range)
+            self.plot2.refresh(range)
+        self.plot.refresh(range)
         self.canvas.draw()
+    
+    def get_plots(self) -> list[Plot]:
+        if self.function is None:
+            return [self.plot.get_plot()]
+        return [self.plot.get_plot(), self.plot2.get_plot()]
 
 
 class WavePlot:
-    def __init__(self, figure: plt.Figure, canvas: FigureCanvasQTAgg, main_plot: Plot, a: float, t: float, title: str, 
-                 function: Callable[[Plot, Plot], Plot],
+    def __init__(self, figure: plt.Figure, canvas: FigureCanvasQTAgg, main_plot: Plot, title: str, 
+                 function: Callable[[Plot, Plot, float], Plot],
                  colors: List[str] = ['blue', 'red', 'green']) -> None:
         self.figure = figure
         self.canvas = canvas
         self.main_plot = main_plot
-        self.a = a
-        self.t = t
         self.function = function
         self.colors = colors
         self.dynamic_plots = []
-        self.ax = self.figure.add_subplot()
+        self.ax = self.figure.add_subplot(111)
         self.ax.set_title(title)
 
         # Plot 1: g(x - at)
-        self.plot1 = DynamicPlot(main_plot, color=self.colors[0])
+        self.plot1 = DynamicPlot(self.ax, main_plot, color=self.colors[0])
         
         # Plot 2: g(x + at)
-        self.plot2 = DynamicPlot(main_plot, color=self.colors[1])
+        self.plot2 = DynamicPlot(self.ax, main_plot, color=self.colors[1])
         
         # Plot 3: function(g(x-at), g(x+at))
-        combined_plot = self.function(main_plot, main_plot)
-        self.plot3 = DynamicPlot(combined_plot, color=self.colors[2])
+        combined_plot = self.function(main_plot, main_plot, 1)
+        self.plot3 = DynamicPlot(self.ax, combined_plot, color=self.colors[2])
 
         self.canvas.draw()
     
     def refresh(self, a: float, t: float, range: Range) -> None:
-        plt.axis([range.x0, range.x1, range.y0, range.y1])
-        self.ax.grid(True, alpha=0.1)
+        self.ax.set_xlim(range.x0, range.x1)
+        self.ax.set_ylim(range.y0, range.y1)
+        self.ax.grid(True, alpha=0.2)
         self.ax.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
         self.ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
-        plot_plus = self.plot1.refresh(a, range, t=t)
-        plot_minus = self.plot2.refresh(a, range, t=t)
-        del self.plot3
-        combined_plot = self.function(plot_plus, plot_minus)
-        self.plot3 = DynamicPlot(combined_plot, color=self.colors[2])
+        plot_plus = self.plot1.refresh(range, a=a, t=t)
+        plot_minus = self.plot2.refresh(range, a=a, t=-t)
+        self.plot3.line.remove()
+        combined_plot = self.function(plot_plus, plot_minus, a)
+        self.plot3 = DynamicPlot(self.ax, combined_plot, color=self.colors[2])
+        self.plot3.refresh(range)
         self.canvas.draw()
+
+    def get_plots(self) -> list[Plot]:
+        return [self.plot1.get_plot(), self.plot2.get_plot(), self.plot3.get_plot()]
+    
+
+
+class ResultPlot:
+    def __init__(self, figure: plt.Figure, canvas: FigureCanvasQTAgg, plot1: Plot, plot2: Plot, range: Range, title: str, 
+                 function: Callable[[Plot, Plot], Plot] | Callable[[Plot, Plot, Plot], Plot], plot3: Optional[Plot] = None,
+                 colors: List[str] = ['blue', 'red', 'green']) -> None:
+        self.figure = figure
+        self.canvas = canvas
+        self.plot1 = plot1
+        self.plot2 = plot2
+        self.plot3_exists = plot3 is not None
+        self.function = function
+        self.colors = colors
+        self.dynamic_plots = []
+        self.ax = self.figure.add_subplot(111)
+        self.ax.set_xlim(range.x0, range.x1)
+        self.ax.set_ylim(range.y0, range.y1)
+        self.ax.grid(True, alpha=0.2)
+        self.ax.xaxis.set_major_locator(ticker.MultipleLocator(0.5))
+        self.ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
+        self.ax.set_title(title)
+
+        self.plot1 = DynamicPlot(self.ax, plot1, color=self.colors[0])
+        self.plot1.refresh(range)
+        self.plot2 = DynamicPlot(self.ax, plot2, color=self.colors[1])
+        self.plot2.refresh(range)
+        if self.plot3_exists:
+            self.plot3 = DynamicPlot(self.ax, plot3, color=self.colors[3])
+            self.plot3.refresh(range)
+            combined_plot = self.function(plot1, plot2, plot3)
+        else:
+            combined_plot = self.function(plot1, plot2)
+        self.plot_result = DynamicPlot(self.ax, combined_plot, color=self.colors[2])
+        self.plot_result.refresh(range)
+
+        self.canvas.draw()
+
+    def get_plots(self) -> list[Plot]:
+        if self.plot3_exists:
+            return [self.plot1.get_plot(), self.plot2.get_plot(), self.plot3.get_plot(), self.plot_result.get_plot()]
+        return [self.plot1.get_plot(), self.plot2.get_plot(), self.plot_result.get_plot()]
 
 
 
