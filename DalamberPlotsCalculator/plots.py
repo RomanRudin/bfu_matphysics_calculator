@@ -83,10 +83,12 @@ class PlotInput(QObject):
         self.canvas.mpl_connect('button_press_event', self.on_click)
         self.canvas.mpl_connect('key_press_event', self.on_key_press)
 
+
     def initial_draw(self, plot: Plot) -> None:
-        self.verts = [[self.range.x0, 0]] + [[segment.x1, segment(segment.x1)] for segment in plot.segments] [[self.range.x1, 0]]
+        self.verts = [[self.range.x0, 0]] + [[segment.x1, segment(segment.x1)] for segment in plot.segments] + [[self.range.x1, 0]]
         self.codes = [path.Path.MOVETO, path.Path.LINETO] + [path.Path.LINETO] * len(plot.segments)
         self.refresh()
+
         
     def on_click(self, event) -> None:
         if event.inaxes == self.ax:
@@ -97,13 +99,17 @@ class PlotInput(QObject):
             self.verts = sorted(self.verts, key=lambda p: p[0])
             self.refresh()
             self.canvas.setFocus()
+
         
     def refresh(self) -> None:
+        self.figure.clear()
+        self.ax = self.figure.add_subplot(111)
         self.redraw_axes()
         path_plot = path.Path(self.verts, self.codes)
         patch = patches.PathPatch(path_plot, facecolor='none')
         self.ax.add_patch(patch)
         self.canvas.draw()
+
     
     def on_key_press(self, event) -> None:
         if event.key in ['enter', ' ']:
@@ -116,6 +122,7 @@ class PlotInput(QObject):
             self.refresh()
             return
     
+
     def get_plot(self) -> list[Segment] | list:
         if len(self.verts) <= 0:
             return []
@@ -128,6 +135,7 @@ class PlotInput(QObject):
     
     def show(self) -> None:
         plt.show()
+
 
     def redraw_axes(self) -> None:
         self.ax.clear()

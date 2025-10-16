@@ -5,7 +5,7 @@ from matplotlib.widgets import Slider
 from PyQt5.QtCore import QObject
 from plots import Range
 
-STANDART_LIMITERS = Range(-2, 5, 2, -2)
+STANDART_LIMITERS = Range(-2, 5, -2, 2)
 MAX_T = 10
 
 
@@ -28,7 +28,7 @@ class TSlider(QObject):
 class Limiters(QWidget):
     limitersChanged = pyqtSignal(float, float, float, float, float)
 
-    def __init__(self, parent: 'Window') -> None:
+    def __init__(self, refresh_function: callable) -> None:
         super().__init__()
         main_layout = QVBoxLayout()
         limiters_text = QLabel(f'Limiters of plot for functions below:')
@@ -36,10 +36,10 @@ class Limiters(QWidget):
 
         left_limiter_text, right_limiter_text, upper_limiter_text, bottom_limiter_text = QLabel('Left limiter:'), QLabel('Right limiter:'), QLabel('Upper limiter:'), QLabel('Bottom limiter:')
         self.left_limiter, self.right_limiter, self.bottom_limiter, self.upper_limiter = QLineEdit(str(STANDART_LIMITERS.x0)), QLineEdit(str(STANDART_LIMITERS.x1)), QLineEdit(str(STANDART_LIMITERS.y0)), QLineEdit(str(STANDART_LIMITERS.y1))
-        self.left_limiter.editingFinished.connect(parent.refresh_input_plots)
-        self.right_limiter.editingFinished.connect(parent.refresh_input_plots)
-        self.upper_limiter.editingFinished.connect(parent.refresh_input_plots)
-        self.bottom_limiter.editingFinished.connect(parent.refresh_input_plots)
+        self.left_limiter.editingFinished.connect(refresh_function)
+        self.right_limiter.editingFinished.connect(refresh_function)
+        self.upper_limiter.editingFinished.connect(refresh_function)
+        self.bottom_limiter.editingFinished.connect(refresh_function)
         limiters_layout.addWidget(left_limiter_text, 0, 0), limiters_layout.addWidget(self.left_limiter, 1, 0), 
         limiters_layout.addWidget(right_limiter_text, 2, 0), limiters_layout.addWidget(self.right_limiter, 3, 0) 
         limiters_layout.addWidget(upper_limiter_text, 0, 1), limiters_layout.addWidget(self.upper_limiter, 1, 1)
@@ -53,11 +53,17 @@ class Limiters(QWidget):
         main_layout.addWidget(limiters_text, stretch=1)
         main_layout.addLayout(limiters_layout, stretch=2)
         self.setLayout(main_layout)
+
+    def refresh(self, range: Range) -> None:
+        self.left_limiter.setText(str(range.x0))
+        self.right_limiter.setText(str(range.x1))
+        self.bottom_limiter.setText(str(range.y0))
+        self.upper_limiter.setText(str(range.y1))
     
     def get_limiters(self, resulting: bool = False) -> Range:
         if resulting:
-            return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.upper_limiter.text().replace(',', '.')) * 2, float(self.bottom_limiter.text().replace(',', '.')) * 2)
-        return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.upper_limiter.text().replace(',', '.')), float(self.bottom_limiter.text().replace(',', '.')))
+            return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.bottom_limiter.text().replace(',', '.')) * 2, float(self.upper_limiter.text().replace(',', '.')) * 2)
+        return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.bottom_limiter.text().replace(',', '.')), float(self.upper_limiter.text().replace(',', '.')))
 
 
     
@@ -68,18 +74,18 @@ class RadioButtons(QWidget):
     def __init__(self) -> None:
         super().__init__()
         main_layout = QVBoxLayout()
-        button_group = QButtonGroup()
+        self.button_group = QButtonGroup()
         self.button_1 = QRadioButton('Infinite')
         self.button_2 = QRadioButton('U|x=x0 = 0')
         self.button_3 = QRadioButton('Ux|x=x0 = 0')
         self.button_1.setChecked(True)
-        button_group.addButton(self.button_1)
-        button_group.addButton(self.button_2)
-        button_group.addButton(self.button_3)
+        self.button_group.addButton(self.button_1)
+        self.button_group.addButton(self.button_2)
+        self.button_group.addButton(self.button_3)
         self.button_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.button_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.button_3.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        button_group.buttonReleased.connect(self.onTypeChange)
+        self.button_group.buttonClicked.connect(self.onTypeChange)
         main_layout.addWidget(self.button_1)
         main_layout.addWidget(self.button_2)
         main_layout.addWidget(self.button_3)

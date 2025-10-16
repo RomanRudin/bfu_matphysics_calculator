@@ -65,7 +65,7 @@ class Segment:
         if self.x0 < 0:
             if self.x1 <= 0:
                 result.append(Segment(self.x0, self.x1, lambda x: sums[0] - 1 * (self(x)) * (x - self.x0)))
-                sums.append(sums[0] - (self.x1 - self.x0) * self(self.x0) - 1 * (self(self.x1)) * (self.x1 - self.x0))
+                sums.append(sums[0] - 1 * (self(self.x1)) * (self.x1 - self.x0))
             else:
                 result.append(Segment(self.x0, 0, lambda x: sums[0] - 1 * (self(x)) * (x - self.x0)))
                 sums.append(sums[0] - 1 * (self(0)) * (0 - self.x0))
@@ -169,6 +169,7 @@ class Plot:
         previous_sum = 0
         for segment in self.segments:
             integrated, previous_sum = segment.integrate(previous_sum)
+            print(integrated, previous_sum)
             for segment in integrated.segments:
                 result.append(segment)
         return Plot(result)
@@ -178,7 +179,18 @@ class Plot:
         if x < self.start: return self(self.start) 
         if x > self.end: return self(self.end)
         i = 0
-        while not self.segments[i].x0 <= x <= self.segments[i].x1: i += 1
+        try:
+            while not self.segments[i].x0 <= x <= self.segments[i].x1: 
+                i += 1
+        except Exception as e:
+            i = 0
+            with open('debug_log.txt', 'w') as file:
+                file.write(str(self) + 2 * '\n')
+                file.write(str(x) + 2 * '\n')
+                while not self.segments[i].x0 <= x <= self.segments[i].x1: 
+                    file.write(f'{str(self.segments[i].x0)}, {str(self.segments[i].x1)}, {str(i)}\n')
+                    i += 1
+            raise e
         return self.segments[i](x)
 
     def shift(self, shift_amount: float) -> Plot:
@@ -205,6 +217,7 @@ class Plot:
 
     def extend(self, amount: float) -> Plot:
         num = amount
+        # print(self, self.start, self.end, num)
         return Plot([Segment(self.start - num, self.start, lambda _: self(self.start))] + \
             self.segments + [Segment(self.end, self.end + num, lambda _: self(self.end))])
     
