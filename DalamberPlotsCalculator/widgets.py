@@ -5,8 +5,8 @@ from matplotlib.widgets import Slider
 from PyQt5.QtCore import QObject
 from plots import Range
 
-STANDART_LIMITERS = Range(-2, 5, -2, 2)
-MAX_T = 10
+STANDART_LIMITERS = Range(0, 5, -2, 2)
+MAX_T = 20
 
 
 class TSlider(QObject):
@@ -92,18 +92,17 @@ class RadioButtons(QWidget):
         self.setLayout(main_layout)
 
     def onTypeChange(self, button) -> None:
-        print("onTypeChange!")
         data = {
             'Infinite': 'none',
-            'U|x=x0 = 0': 'even', 
-            'Ux|x=x0 = 0': 'odd'
+            'U|x=x0 = 0': 'odd', 
+            'Ux|x=x0 = 0': 'even'
         }
         assert data[button.text()] is not None
         self.constraintType.emit(data[button.text()])
 
     def getType(self) -> str:
         if self.button_2.isChecked():
-            return "even"
-        elif self.button_3.isChecked():
             return "odd"
+        elif self.button_3.isChecked():
+            return "even"
         return "none"

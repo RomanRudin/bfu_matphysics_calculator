@@ -2,7 +2,7 @@ from __future__ import annotations
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QLabel, QLineEdit
 import matplotlib.pyplot as plt
 import numpy as np
-from plots import WavePlot, Range, SinglePlot, ResultPlot, PlotInput
+from plots import WavePlot, SinglePlot, ResultPlot, PlotInput
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from datastructures import Range, Segment, Plot
 from widgets import Limiters, RadioButtons, TSlider, MAX_T
@@ -210,7 +210,7 @@ class Window(QWidget):
         self.f_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.result_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        self.refresh_slider(10)
+        self.refresh_slider(20)
         self.refresh_input_plots()
         self.setLayout(main_layout)
 
@@ -228,7 +228,7 @@ class Window(QWidget):
         figure.clear()
         ax = figure.add_subplot(111)
         # y = eval(function)
-        x = np.linspace(self.range[0][0], self.range[0][1], (self.range[0][1] - self.range[0][0]) * 100)
+        x = np.linspace(self.plot_range[0][0], self.plot_range[0][1], (self.plot_range[0][1] - self.plot_range[0][0]) * 100)
         y = [(dot) for dot in x]
         self.input_plots[function_name], = ax.plot(x, y)
         self.refresh_initial_plots()
@@ -236,35 +236,31 @@ class Window(QWidget):
 
 
     def input_limiter_refreshed(self) -> None:
-        range = self.functions_limiter.get_limiters()
-        self.resulting_functions_limiter.refresh(range)
-        self.left_x0_parameter.setText(str(range.x0))
-        self.right_x0_parameter.setText(str(range.x1))
+        plot_range = self.functions_limiter.get_limiters()
+        self.resulting_functions_limiter.refresh(plot_range)
+        self.left_x0_parameter.setText(str(plot_range.x0))
+        self.right_x0_parameter.setText(str(plot_range.x1))
         self.refresh_input_plots()
 
 
 
     def refresh_input_plots(self) -> None:
-        range = self.functions_limiter.get_limiters()
+        plot_range = self.functions_limiter.get_limiters()
         self.phi_input_plot_figure.clear()
         self.psi_input_plot_figure.clear()
-        self.input_plots['φ(x)'] = PlotInput(figure=self.phi_input_plot_figure, canvas=self.phi_input_plot_figure_canvas, range=range, initial_plot=self.initial_plots_data['φ(x)'])
+        self.input_plots['φ(x)'] = PlotInput(figure=self.phi_input_plot_figure, canvas=self.phi_input_plot_figure_canvas, range=plot_range, initial_plot=self.initial_plots_data['φ(x)'])
         self.input_plots['φ(x)'].finishedDrawing.connect(self.refresh_initial_plots)
-        self.input_plots['ψ(x)'] = PlotInput(figure=self.psi_input_plot_figure, canvas=self.psi_input_plot_figure_canvas, range=range, initial_plot=self.initial_plots_data['ψ(x)'])
+        self.input_plots['ψ(x)'] = PlotInput(figure=self.psi_input_plot_figure, canvas=self.psi_input_plot_figure_canvas, range=plot_range, initial_plot=self.initial_plots_data['ψ(x)'])
         self.input_plots['ψ(x)'].finishedDrawing.connect(self.refresh_initial_plots)
         self.refresh_initial_plots()
 
 
     def refresh_left_constraint(self) -> None:
-        print("Left Constraint has changed!")
-        print(self.left_constraint_choose.getType())
         self.left_x0_parameter.setEnabled(self.left_constraint_choose.getType() != 'none')
         self.refresh_initial_plots()
 
 
     def refresh_right_constraint(self) -> None:
-        print("Left Constraint has changed!")
-        print(self.left_constraint_choose.getType())
         self.right_x0_parameter.setEnabled('none' != self.right_constraint_choose.getType())
         self.refresh_initial_plots()
 
@@ -272,28 +268,34 @@ class Window(QWidget):
         self.phi_initial_plot_figure.clear()
         self.psi_initial_plot_figure.clear()
 
-        range = self.resulting_functions_limiter.get_limiters()
+        plot_range = self.resulting_functions_limiter.get_limiters()
 
         left_constraint_type = self.left_constraint_choose.getType()
         right_constraint_type = self.right_constraint_choose.getType()
         left_constraint_x0 = float(self.left_x0_parameter.text().replace(',', '.'))
         right_constraint_x0 = float(self.right_x0_parameter.text().replace(',', '.'))
-        assert right_constraint_x0 > left_constraint_x0
-        assert left_constraint_x0 >= range.x0
-        assert right_constraint_x0 <= range.x1
+        assert right_constraint_x0 > left_constraint_x0 #TODO
+        assert left_constraint_x0 >= plot_range.x0 #TODO
+        assert right_constraint_x0 <= plot_range.x1 #TODO
 
         self.initial_plots_data['φ(x)'] = self.input_plots['φ(x)'].get_plot()
         self.initial_plots_data['ψ(x)'] = self.input_plots['ψ(x)'].get_plot()
 
         if left_constraint_type != 'none':
-            for function_name in self.initial_plots_data.keys():
+            for function_name in ['φ(x)', 'ψ(x)']:
                 self.initial_plots_data[function_name] = self._extend_plot(self.initial_plots_data[function_name], left_constraint_type, left_constraint_x0, 'left')
         if right_constraint_type != 'none':
-            for function_name in self.initial_plots_data.keys():
+            for function_name in ['φ(x)', 'ψ(x)']:
                 self.initial_plots_data[function_name] = self._extend_plot(self.initial_plots_data[function_name], right_constraint_type, right_constraint_x0, 'right')
+        if left_constraint_type != 'none' and right_constraint_type != 'none':
+            for _ in range(2):
+                for function_name in ['φ(x)', 'ψ(x)']:
+                    self.initial_plots_data[function_name] = self._extend_plot(self.initial_plots_data[function_name], left_constraint_type, left_constraint_x0, 'left')
+                for function_name in ['φ(x)', 'ψ(x)']:
+                    self.initial_plots_data[function_name] = self._extend_plot(self.initial_plots_data[function_name], right_constraint_type, right_constraint_x0, 'right')
 
-        SinglePlot(self.phi_initial_plot_figure, self.phi_initial_plot_figure_canvas, self.initial_plots_data['φ(x)'], range, 'Initial φ(x)', colors=['orange'])
-        self.initial_plots_data['Ф(x)'] = SinglePlot(self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas, self.initial_plots_data['ψ(x)'], range, 'Initial ψ(x), Ф(x)', lambda plot: plot.integrate(), colors=['black', 'blue']).get_plots()[1]
+        SinglePlot(self.phi_initial_plot_figure, self.phi_initial_plot_figure_canvas, self.initial_plots_data['φ(x)'], plot_range, 'Initial φ(x)', colors=['orange'])
+        self.initial_plots_data['Ф(x)'] = SinglePlot(self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas, self.initial_plots_data['ψ(x)'], plot_range, 'Initial ψ(x), Ф(x)', lambda plot: plot.integrate(), colors=['black', 'blue']).get_plots()[1]
 
         self.initialize_resulting_plots()
 
@@ -301,13 +303,17 @@ class Window(QWidget):
     def _extend_plot(self, plot: Plot, constraint_type: str, constraint_x0: float, side: str) -> Plot:
         if constraint_type == 'none' or plot is None:
             return plot
-        
-        # Calculate extension range
+        reflected_segments = []
+        if constraint_x0 < plot.start:
+            start, function = plot.start, plot(start)
+            plot.segments.insert(0, Segment(constraint_x0, start, lambda _: function)) 
+        if constraint_x0 > plot.end:
+            end, function = plot.end, plot(end)
+            plot.segments.append(Segment(end, constraint_x0, lambda _: function))
+
         if side == 'left':
-            # Create reflected segments
-            reflected_segments = []
             for segment in plot.segments:
-                if segment.x1 < constraint_x0:
+                if segment.x1 <= constraint_x0:
                     continue
                 if segment.x0 < constraint_x0 < segment.x1:
                     segment = Segment(constraint_x0, segment.x1, segment.function)
@@ -323,30 +329,35 @@ class Window(QWidget):
                 reflected_segment = Segment(reflected_x0, reflected_x1, reflected_function)
                 reflected_segments.append(reflected_segment)
 
-            all_segments = sorted(reflected_segments + plot.segments, key=lambda segment: segment.x0)
+            cut_input_segments = [segment for segment in plot.segments if segment.x1 > constraint_x0] 
+            if cut_input_segments[0].x0 < constraint_x0:
+                cut_input_segments[0].x0 = constraint_x0
+
+            all_segments = sorted(reflected_segments + cut_input_segments, key=lambda segment: segment.x0)
+
             return Plot(all_segments)
 
-        else:  # side == 'right'
-            reflected_segments = []
-            for segment in plot.segments:
-                if segment.x0 > constraint_x0:
-                    continue
-                if segment.x0 < constraint_x0 < segment.x1:
-                    segment = Segment(segment.x0, constraint_x0, segment.function)
-                reflected_x0 = 2 * constraint_x0 - segment.x1
-                reflected_x1 = 2 * constraint_x0 - segment.x0
+        for segment in plot.segments:
+            if segment.x0 >= constraint_x0:
+                continue
+            if segment.x0 < constraint_x0 < segment.x1:
+                segment = Segment(segment.x0, constraint_x0, segment.function)
+            reflected_x0 = 2 * constraint_x0 - segment.x1
+            reflected_x1 = 2 * constraint_x0 - segment.x0
 
-                if constraint_type == 'even':
-                    reflected_function = lambda x, seg=segment, cx0=constraint_x0: seg(2 * cx0 - x)
-                else:  # 'odd'
-                    reflected_function = lambda x, seg=segment, cx0=constraint_x0: -seg(2 * cx0 - x)
+            if constraint_type == 'even':
+                reflected_function = lambda x, seg=segment, cx0=constraint_x0: seg(2 * cx0 - x)
+            else:  # 'odd'
+                reflected_function = lambda x, seg=segment, cx0=constraint_x0: -seg(2 * cx0 - x)
 
-                reflected_segment = Segment(reflected_x0, reflected_x1, reflected_function)
-                reflected_segments.append(reflected_segment)
+            reflected_segment = Segment(reflected_x0, reflected_x1, reflected_function)
+            reflected_segments.append(reflected_segment)
 
-            # Combine original and reflected segments
-            all_segments = sorted(reflected_segments + plot.segments, key=lambda segment: segment.x0)
-            return Plot(all_segments)
+        cut_input_segments = [segment for segment in plot.segments if segment.x0 < constraint_x0] 
+        if cut_input_segments[-1].x1 > constraint_x0:
+            cut_input_segments[-1].x1 = constraint_x0
+        all_segments = sorted(reflected_segments + cut_input_segments, key=lambda segment: segment.x0)
+        return Plot(all_segments)
 
     
     def initialize_resulting_plots(self) -> None:
@@ -366,28 +377,15 @@ class Window(QWidget):
     def refresh_resulting_plots(self) -> None:
         self.result_plot_figure.clear()
 
-        range = self.resulting_functions_limiter.get_limiters()
+        plot_range = self.resulting_functions_limiter.get_limiters()
         a = float(self.a_parameter.text().replace(',', '.'))
         assert a > 0
         a = a ** 0.5
         t = self.t_slider.val()
 
         for function_name in ['φ(x)', 'Ф(x)']:
-            self.resulting_plots[f'resulting {function_name}'].refresh(a, t, range)
+            self.resulting_plots[f'resulting {function_name}'].refresh(a, t, plot_range)
             self.resulting_plots_data[f'resulting {function_name}'] = self.resulting_plots[f'resulting {function_name}'].get_plots()[2]
         ResultPlot(self.result_plot_figure, self.result_plot_figure_canvas, \
                 self.resulting_plots_data['resulting φ(x)'], self.resulting_plots_data['resulting Ф(x)'], 
-                range, 'Result', lambda plot1, plot2: plot1 + plot2, colors=['orange', 'blue', 'green'])
-
-    
-    def find_range(self) -> Range:
-        range = self.resulting_functions_limiter.get_limiters()
-        if self.left_x0_parameter != '0':
-            range.x0 -= range.x1 - float(self.left_x0_parameter.text().replace(',', '.'))
-        if self.right_x0_parameter != '0':
-            range.x1 += float(self.right_x0_parameter.text().replace(',', '.')) - range.x0 
-        range.x0 -= 2
-        range.x1 += 2
-        range.y0 *= 2
-        range.y1 *= 2
-        return range
+                plot_range, 'Result', lambda plot1, plot2: plot1 + plot2, colors=['orange', 'blue', 'green'])

@@ -59,23 +59,12 @@ class Segment:
             return other / self
         return Segment(self.x0, self.x1, lambda x: other / self(x))
     
-    def integrate(self, previous_sum: float) -> Plot:
-        result = []
-        sums = [previous_sum]
-        if self.x0 < 0:
-            if self.x1 <= 0:
-                result.append(Segment(self.x0, self.x1, lambda x: sums[0] - 1 * (self(x)) * (x - self.x0)))
-                sums.append(sums[0] - 1 * (self(self.x1)) * (self.x1 - self.x0))
-            else:
-                result.append(Segment(self.x0, 0, lambda x: sums[0] - 1 * (self(x)) * (x - self.x0)))
-                sums.append(sums[0] - 1 * (self(0)) * (0 - self.x0))
-                result.append(Segment(0, self.x1, lambda x: sums[1] + 1 * (self(x)) * (x - 0)))
-                sums.append(sums[1] + 1 * (self(self.x1)) * (self.x1 - 0))
-        else:
-            result.append(Segment(self.x0, self.x1, lambda x: sums[0] +  (self(x)) * (x - self.x0)))
-            sums.append(sums[0] + 1 * (self(self.x1)) * (self.x1 - self.x0))
-        return Plot(result), sums[-1]
-    
+    def integrate(self, previous_sum: float) -> list[Plot, float]:
+        if self.x1 < 0:
+            previous_sum -= (self(self.x1)) * (self.x1 - self.x0)
+            return Segment(self.x0, self.x1, lambda x: previous_sum + (self(x)) * (x - self.x0)), previous_sum
+        return Segment(self.x0, self.x1, lambda x: previous_sum + (self(x)) * (x - self.x0)), previous_sum + (self(self.x1)) * (self.x1 - self.x0)
+
     def __call__(self, x: float) -> float:
         return self.function(x)
     def __str__(self) -> str:
@@ -163,34 +152,41 @@ class Plot:
             if segment.x1 not in all_segments:
                 all_segments.append(segment.x1)
         return sorted(all_segments)
+    
+    def _split_zero(self) -> float:
+        if self.end <= 0:
+            return len(self.segments)
+        if self.start >= 0:
+            return 0
+        for zero_index, segment in enumerate(self.segments):
+            if segment.x0 == 0:
+                return zero_index
+            if segment.x0 < 0 < segment.x1:
+                deleted_segment = self.segments.pop(zero_index)
+                self.segments.insert(zero_index, Segment(0, deleted_segment.x1, lambda x: deleted_segment(x)))
+                self.segments.insert(zero_index, Segment(deleted_segment.x0, 0, lambda x: deleted_segment(x)))
+                return zero_index
 
     def integrate(self) -> Plot:
+        if self.segments == []: return self
         result = []
         previous_sum = 0
-        for segment in self.segments:
-            integrated, previous_sum = segment.integrate(previous_sum)
-            print(integrated, previous_sum)
-            for segment in integrated.segments:
-                result.append(segment)
+        zero_index = self._split_zero()
+        for i in range(zero_index, len(self.segments)):
+            integrated, previous_sum = self.segments[i].integrate(previous_sum)
+            result.append(integrated)
+        previous_sum = 0
+        for i in range(zero_index - 1, -1, -1):
+            integrated, previous_sum = self.segments[i].integrate(previous_sum)
+            result.insert(0, integrated)
         return Plot(result)
     
     def __call__(self, x: float) -> float:
         if not self.segments: return 0
         if x < self.start: return self(self.start) 
         if x > self.end: return self(self.end)
-        i = 0
-        try:
-            while not self.segments[i].x0 <= x <= self.segments[i].x1: 
-                i += 1
-        except Exception as e:
-            i = 0
-            with open('debug_log.txt', 'w') as file:
-                file.write(str(self) + 2 * '\n')
-                file.write(str(x) + 2 * '\n')
-                while not self.segments[i].x0 <= x <= self.segments[i].x1: 
-                    file.write(f'{str(self.segments[i].x0)}, {str(self.segments[i].x1)}, {str(i)}\n')
-                    i += 1
-            raise e
+        while not self.segments[i].x0 <= x <= self.segments[i].x1: 
+            i += 1
         return self.segments[i](x)
 
     def shift(self, shift_amount: float) -> Plot:
@@ -210,6 +206,7 @@ class Plot:
     
     @property
     def start(self) -> float:
+        if not self.segments: return 0
         return self.segments[0].x0
     @property
     def end(self) -> float:
@@ -217,7 +214,6 @@ class Plot:
 
     def extend(self, amount: float) -> Plot:
         num = amount
-        # print(self, self.start, self.end, num)
         return Plot([Segment(self.start - num, self.start, lambda _: self(self.start))] + \
             self.segments + [Segment(self.end, self.end + num, lambda _: self(self.end))])
     
