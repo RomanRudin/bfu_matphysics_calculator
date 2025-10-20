@@ -11,9 +11,9 @@ MAX_T = 20
 
 class TSlider(QObject):
     valueChanged = pyqtSignal(int)
-    def __init__(self, ax, min_value, max_value, *args, **kwargs) -> None:
+    def __init__(self, ax, *args, **kwargs) -> None:
         super().__init__()
-        self.slider = Slider(ax, 't', min_value, max_value, valinit=0, valstep=0.25, valfmt="%.2f")
+        self.slider = Slider(ax, 't', 0, MAX_T, valinit=0, valstep=0.25, valfmt="%.2f")
         self.slider.on_changed(lambda _: self.on_changed(self.slider.val))
 
     def on_changed(self, val) -> None:

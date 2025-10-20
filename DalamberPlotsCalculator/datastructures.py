@@ -185,6 +185,7 @@ class Plot:
         if not self.segments: return 0
         if x < self.start: return self(self.start) 
         if x > self.end: return self(self.end)
+        i = 0
         while not self.segments[i].x0 <= x <= self.segments[i].x1: 
             i += 1
         return self.segments[i](x)

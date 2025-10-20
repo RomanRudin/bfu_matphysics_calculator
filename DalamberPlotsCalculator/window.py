@@ -210,16 +210,16 @@ class Window(QWidget):
         self.f_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.result_plot_figure_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        self.refresh_slider(20)
+        self.refresh_slider()
         self.refresh_input_plots()
         self.setLayout(main_layout)
 
 
 
-    def refresh_slider(self, max_value: float) -> None:
+    def refresh_slider(self) -> None:
         self.t_slider_figure.clear()
         ax = self.t_slider_figure.add_subplot(111)
-        self.t_slider = TSlider(ax, 0, max_value)
+        self.t_slider = TSlider(ax)
         self.t_slider.valueChanged.connect(self.refresh_resulting_plots)
 
         
