@@ -275,8 +275,6 @@ class Window(QWidget):
         left_constraint_x0 = float(self.left_x0_parameter.text().replace(',', '.'))
         right_constraint_x0 = float(self.right_x0_parameter.text().replace(',', '.'))
         assert right_constraint_x0 > left_constraint_x0 #TODO
-        assert left_constraint_x0 >= plot_range.x0 #TODO
-        assert right_constraint_x0 <= plot_range.x1 #TODO
 
         self.initial_plots_data['φ(x)'] = self.input_plots['φ(x)'].get_plot()
         self.initial_plots_data['ψ(x)'] = self.input_plots['ψ(x)'].get_plot()
@@ -305,10 +303,10 @@ class Window(QWidget):
             return plot
         reflected_segments = []
         if constraint_x0 < plot.start:
-            start, function = plot.start, plot(start)
+            start, function = plot.start, plot(plot.start)
             plot.segments.insert(0, Segment(constraint_x0, start, lambda _: function)) 
         if constraint_x0 > plot.end:
-            end, function = plot.end, plot(end)
+            end, function = plot.end, plot(plot.end)
             plot.segments.append(Segment(end, constraint_x0, lambda _: function))
 
         if side == 'left':
