@@ -60,9 +60,8 @@ class Segment:
         return Segment(self.x0, self.x1, lambda x: other / self(x))
     
     def integrate(self, previous_sum: float) -> list[Plot, float]:
-        if self.x1 < 0:
-            previous_sum -= (self(self.x1)) * (self.x1 - self.x0)
-            return Segment(self.x0, self.x1, lambda x: previous_sum + (self(x)) * (x - self.x0)), previous_sum
+        if self.x1 <= 0:
+            return Segment(self.x0, self.x1, lambda x: previous_sum + (self(x)) * (self.x1 - x)), previous_sum - (self(self.x1)) * (self.x0 - self.x1)
         return Segment(self.x0, self.x1, lambda x: previous_sum + (self(x)) * (x - self.x0)), previous_sum + (self(self.x1)) * (self.x1 - self.x0)
 
     def __call__(self, x: float) -> float:
@@ -165,7 +164,7 @@ class Plot:
                 deleted_segment = self.segments.pop(zero_index)
                 self.segments.insert(zero_index, Segment(0, deleted_segment.x1, lambda x: deleted_segment(x)))
                 self.segments.insert(zero_index, Segment(deleted_segment.x0, 0, lambda x: deleted_segment(x)))
-                return zero_index
+                return zero_index + 1
 
     def integrate(self) -> Plot:
         if self.segments == []: return self
