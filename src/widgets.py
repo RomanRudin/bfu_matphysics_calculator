@@ -3,7 +3,7 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QButtonGroup, QGridLayout, QLabel, QLineEdit, QRadioButton, QSizePolicy
 from matplotlib.widgets import Slider
 from PyQt5.QtCore import QObject
-from plots import Range
+from src.plots import Range
 
 STANDART_LIMITERS = Range(0, 5, -2, 2)
 MAX_T = 20
@@ -67,6 +67,8 @@ class Limiters(QWidget):
             return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.bottom_limiter.text().replace(',', '.')), float(self.upper_limiter.text().replace(',', '.')))
         except ValueError:
             self.refresh(STANDART_LIMITERS)
+            if resulting:
+                return Range(STANDART_LIMITERS.x0, STANDART_LIMITERS.x1, STANDART_LIMITERS.y0 * 2, STANDART_LIMITERS.y1 * 2)
             return STANDART_LIMITERS
 
     

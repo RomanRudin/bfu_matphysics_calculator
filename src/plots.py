@@ -6,7 +6,7 @@ from matplotlib import patches
 from matplotlib import path
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from PyQt5.QtCore import pyqtSignal, QObject, Qt
-from datastructures import Plot, Range, Segment
+from src.datastructures import Plot, Range, Segment
 from typing import Callable, List
 import numpy as np
 # matplotlib.use('Qt5Agg')
@@ -67,6 +67,7 @@ class PlotInput(QObject):
     # def __init__(self, xlim: list[int, int] = [-5, 5],  ylim: list[int, int] = [-2, 2]) -> None:
         super().__init__()
         self.figure = figure
+        self.isEnabled = True
         self.verts = [[range.x0, 0], [range.x1, 0]]
         self.codes = [path.Path.MOVETO, path.Path.LINETO]
         self.canvas = canvas
@@ -83,6 +84,12 @@ class PlotInput(QObject):
         self.canvas.mpl_connect('button_press_event', self.on_click)
         self.canvas.mpl_connect('key_press_event', self.on_key_press)
 
+    def setEnabled(self, enabled: bool) -> None:
+        self.isEnabled = enabled
+        if not enabled:
+            self.ax.set_facecolor('gray')
+        else:
+            self.ax.set_facecolor('white')
 
     def initial_draw(self, plot: Plot) -> None:
         self.verts = [[self.range.x0, 0]] + [[segment.x1, segment(segment.x1)] for segment in plot.segments] + [[self.range.x1, 0]]
@@ -91,7 +98,7 @@ class PlotInput(QObject):
 
         
     def on_click(self, event) -> None:
-        if event.inaxes == self.ax:
+        if event.inaxes == self.ax and self.isEnabled:
             self.redraw_axes()
             x, y = (float(event.xdata) * 4 + 1) // 2 / 2, (float(event.ydata) * 4 + 1) // 2 / 2
             self.codes.append(path.Path.LINETO)
@@ -112,10 +119,10 @@ class PlotInput(QObject):
 
     
     def on_key_press(self, event) -> None:
-        if event.key in ['enter', ' ']:
+        if event.key in ['enter', ' '] and self.isEnabled:
             self.finishedDrawing.emit(True)
             return self.get_plot()
-        if event.key == 'backspace':
+        if event.key == 'backspace' and self.isEnabled:
             if len(self.verts) <= 2: return
             self.verts.pop(-2)
             self.codes.pop(-2)

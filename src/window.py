@@ -2,10 +2,10 @@ from __future__ import annotations
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QLabel, QLineEdit
 import matplotlib.pyplot as plt
 import numpy as np
-from plots import WavePlot, SinglePlot, ResultPlot, PlotInput
+from src.plots import WavePlot, SinglePlot, ResultPlot, PlotInput
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from datastructures import Range, Segment, Plot
-from widgets import Limiters, RadioButtons, TSlider, MAX_T
+from src.datastructures import Range, Segment, Plot
+from src.widgets import Limiters, RadioButtons, TSlider, MAX_T
 
 
 
@@ -56,8 +56,7 @@ class Window(QWidget):
         phi_text = QLabel('U|t=0 = ϕ(x) = ')
         self.phi_parameter = QLineEdit()
         self.phi_parameter.setPlaceholderText('Enter the ϕ(x) or draw it manually in the plot')  
-        self.phi_parameter.editingFinished.connect(lambda _: self.draw_initial_plot('φ(x)', self.phi_parameter.text(), self.phi_input_plot_figure, self.phi_input_plot_figure_canvas))
-        self.phi_parameter.setEnabled(False)
+        # self.phi_parameter.setEnabled(False) #?
         phi_text_layout.addWidget(phi_text, stretch=1)
         phi_text_layout.addWidget(self.phi_parameter, stretch=5)
         self.phi_input_plot_figure = plt.figure()
@@ -74,8 +73,7 @@ class Window(QWidget):
         psi_text = QLabel('Ut|t=0 = ψ(x) = ')
         self.psi_parameter = QLineEdit()
         self.psi_parameter.setPlaceholderText('Enter the ψ(x) or draw it manually in the plot')  
-        self.psi_parameter.editingFinished.connect(lambda _: self.draw_initial_plot('φ(x)', self.psi_parameter.text(), self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas))
-        self.psi_parameter.setEnabled(False)
+        # self.psi_parameter.setEnabled(False) #?
         psi_text_layout.addWidget(psi_text, stretch=1)
         psi_text_layout.addWidget(self.psi_parameter, stretch=5)
         self.psi_input_plot_figure = plt.figure()
@@ -212,6 +210,15 @@ class Window(QWidget):
 
         self.refresh_slider()
         self.refresh_input_plots()
+
+        self.function_parameters = {
+            'φ(x)': self.phi_parameter,
+            'ψ(x)': self.psi_parameter
+        } 
+
+        self.phi_parameter.editingFinished.connect(self.draw_initial_plot('φ(x)', self.phi_parameter, self.phi_input_plot_figure, self.phi_input_plot_figure_canvas), self.changeAccessInputPlot())
+        self.psi_parameter.editingFinished.connect(self.draw_initial_plot('φ(x)', self.psi_parameter.text(), self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas), self.changeAccessInputPlot())
+
         self.setLayout(main_layout)
 
 
@@ -223,13 +230,16 @@ class Window(QWidget):
         self.t_slider.valueChanged.connect(self.refresh_resulting_plots)
 
         
-    def draw_initial_plot(self, function_name: str, function: str, figure: plt.Figure, canvas: FigureCanvasQTAgg) -> None: #TODO
+    def draw_initial_plot(self, function_name: str, function: QLabel, figure: plt.Figure, canvas: FigureCanvasQTAgg) -> None:
         assert function_name in self.input_plots.keys()
         figure.clear()
         ax = figure.add_subplot(111)
-        # y = eval(function)
-        x = np.linspace(self.plot_range[0][0], self.plot_range[0][1], (self.plot_range[0][1] - self.plot_range[0][0]) * 100)
-        y = [(dot) for dot in x]
+        max_range = self.functions_limiter.get_limiters(resulting=True)
+        x = np.linspace(max_range.x0, max_range.x1, int((max_range.x1 - max_range.x0) * 250))
+        evaluation = ['0'] * len(x)
+        if function.text():
+            evaluation = [function.text().replace('x', str(dot)) for dot in x]
+        y = [eval(evaluation[dot]) for dot in range(len(x))]
         self.input_plots[function_name], = ax.plot(x, y)
         self.refresh_initial_plots()
         canvas.draw()
@@ -276,8 +286,11 @@ class Window(QWidget):
         right_constraint_x0 = float(self.right_x0_parameter.text().replace(',', '.'))
         assert right_constraint_x0 > left_constraint_x0 #TODO
 
-        self.initial_plots_data['φ(x)'] = self.input_plots['φ(x)'].get_plot()
-        self.initial_plots_data['ψ(x)'] = self.input_plots['ψ(x)'].get_plot()
+        for function_name in ['φ(x)', 'ψ(x)']:
+            if not self.function_parameters[function_name].text():
+                self.initial_plots_data[function_name] = self.input_plots[function_name].get_plot()
+            else:
+                self.initial_plots_data[function_name] = 
 
         if left_constraint_type != 'none':
             for function_name in ['φ(x)', 'ψ(x)']:
@@ -387,3 +400,11 @@ class Window(QWidget):
         ResultPlot(self.result_plot_figure, self.result_plot_figure_canvas, \
                 self.resulting_plots_data['resulting φ(x)'], self.resulting_plots_data['resulting Ф(x)'], 
                 plot_range, 'Result', lambda plot1, plot2: plot1 + plot2, colors=['orange', 'blue', 'green'])
+        
+
+    def changeAccessInputPlot(self):
+        for key, plot in self.input_plots.items():
+            if self.function_parameters[key].text():
+                plot.setEnabled(False)
+            else:
+                plot.setEnabled(True)
