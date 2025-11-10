@@ -61,10 +61,13 @@ class Limiters(QWidget):
         self.upper_limiter.setText(str(range.y1))
     
     def get_limiters(self, resulting: bool = False) -> Range:
-        if resulting:
-            return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.bottom_limiter.text().replace(',', '.')) * 2, float(self.upper_limiter.text().replace(',', '.')) * 2)
-        return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.bottom_limiter.text().replace(',', '.')), float(self.upper_limiter.text().replace(',', '.')))
-
+        try:
+            if resulting:
+                return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.bottom_limiter.text().replace(',', '.')) * 2, float(self.upper_limiter.text().replace(',', '.')) * 2)
+            return Range(float(self.left_limiter.text().replace(',', '.')), float(self.right_limiter.text().replace(',', '.')), float(self.bottom_limiter.text().replace(',', '.')), float(self.upper_limiter.text().replace(',', '.')))
+        except ValueError:
+            self.refresh(STANDART_LIMITERS)
+            return STANDART_LIMITERS
 
     
 
