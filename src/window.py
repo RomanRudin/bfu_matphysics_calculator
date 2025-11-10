@@ -238,11 +238,20 @@ class Window(QWidget):
             return
         figure.clear()
         max_range = self.functions_limiter.get_limiters(resulting=True)
-        x = np.linspace(max_range.x0, max_range.x1, int((max_range.x1 - max_range.x0) * 20))
+        x = np.linspace(max_range.x0, max_range.x1, int(200))
         evaluation = ['0'] * len(x)
         if function.text():
             evaluation = [function.text().replace('x', str(dot)) for dot in x]
-        y = [eval(evaluation[dot]) for dot in range(len(x))]
+        y = []
+        for dot in range(len(x)):
+            try:
+                y.append(eval(evaluation[dot]))
+            except ZeroDivisionError:
+                if abs(eval(evaluation[dot-1]) - eval(evaluation[(dot+1)%len(evaluation)])) / eval(evaluation[dot-1]) - eval(evaluation[(dot+1)%len(evaluation)]) == 1:
+                    y.append(self.functions_limiter.get_limiters(resulting=True).y1 + 2)
+                else:
+                    y.append(self.functions_limiter.get_limiters(resulting=True).y0 - 2)
+                              
         self.input_plots[function_name].clear()
         self.input_plots[function_name].initial_draw(Plot.fromlists(x, y))
         self.refresh_initial_plots()
