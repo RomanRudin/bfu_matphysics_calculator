@@ -6,6 +6,7 @@ from src.plots import WavePlot, SinglePlot, ResultPlot, PlotInput
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from src.datastructures import Range, Segment, Plot
 from src.widgets import Limiters, RadioButtons, TSlider, MAX_T
+from math import *
 
 
 
@@ -216,8 +217,8 @@ class Window(QWidget):
             'ψ(x)': self.psi_parameter
         } 
 
-        self.phi_parameter.editingFinished.connect(self.draw_initial_plot('φ(x)', self.phi_parameter, self.phi_input_plot_figure, self.phi_input_plot_figure_canvas), self.changeAccessInputPlot())
-        self.psi_parameter.editingFinished.connect(self.draw_initial_plot('φ(x)', self.psi_parameter.text(), self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas), self.changeAccessInputPlot())
+        self.phi_parameter.editingFinished.connect(lambda: self.draw_initial_plot('φ(x)', self.phi_parameter, self.phi_input_plot_figure, self.phi_input_plot_figure_canvas))
+        self.psi_parameter.editingFinished.connect(lambda:self.draw_initial_plot('ψ(x)', self.psi_parameter, self.psi_initial_plot_figure, self.psi_initial_plot_figure_canvas))
 
         self.setLayout(main_layout)
 
@@ -232,15 +233,18 @@ class Window(QWidget):
         
     def draw_initial_plot(self, function_name: str, function: QLabel, figure: plt.Figure, canvas: FigureCanvasQTAgg) -> None:
         assert function_name in self.input_plots.keys()
+        self.changeAccessInputPlot()
+        if function.text() == '':
+            return
         figure.clear()
-        ax = figure.add_subplot(111)
         max_range = self.functions_limiter.get_limiters(resulting=True)
-        x = np.linspace(max_range.x0, max_range.x1, int((max_range.x1 - max_range.x0) * 250))
+        x = np.linspace(max_range.x0, max_range.x1, int((max_range.x1 - max_range.x0) * 20))
         evaluation = ['0'] * len(x)
         if function.text():
             evaluation = [function.text().replace('x', str(dot)) for dot in x]
         y = [eval(evaluation[dot]) for dot in range(len(x))]
-        self.input_plots[function_name], = ax.plot(x, y)
+        self.input_plots[function_name].clear()
+        self.input_plots[function_name].initial_draw(Plot.fromlists(x, y))
         self.refresh_initial_plots()
         canvas.draw()
 
@@ -287,10 +291,7 @@ class Window(QWidget):
         assert right_constraint_x0 > left_constraint_x0 #TODO
 
         for function_name in ['φ(x)', 'ψ(x)']:
-            if not self.function_parameters[function_name].text():
-                self.initial_plots_data[function_name] = self.input_plots[function_name].get_plot()
-            else:
-                self.initial_plots_data[function_name] = 
+            self.initial_plots_data[function_name] = self.input_plots[function_name].get_plot()
 
         if left_constraint_type != 'none':
             for function_name in ['φ(x)', 'ψ(x)']:

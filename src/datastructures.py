@@ -2,6 +2,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+
+def create_functions(x_current, x_next, y_current, y_next) -> Callable[..., float]:
+    def _(x) -> float:
+        return ((y_next - y_current) / abs(x_next - x_current)) * (x - x_current) + y_current
+    return _
+
+
+
+
 @dataclass
 class Range:
     x0: float
@@ -75,6 +84,10 @@ class Segment:
 class Plot:
     def __init__(self, segments: list[Segment]) -> None:
         self.segments = segments
+
+    @classmethod
+    def fromlists(cls, x: list[float], y: list[float]) -> Plot:
+        return Plot([Segment(x[i], x[i + 1], create_functions(x[i], x[i + 1], y[i], y[i + 1])) for i in range(len(x) - 1)])
 
     def __add__(self, other: float | Plot) -> Plot:
         if type(other) == Plot:

@@ -6,18 +6,10 @@ from matplotlib import patches
 from matplotlib import path
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from PyQt5.QtCore import pyqtSignal, QObject, Qt
-from src.datastructures import Plot, Range, Segment
+from src.datastructures import Plot, Range, Segment, create_functions
 from typing import Callable, List
 import numpy as np
 # matplotlib.use('Qt5Agg')
-
-
-def create_functions(x_current, x_next, y_current, y_next) -> Callable[..., float]:
-    def _(x) -> float:
-        return ((y_next - y_current) / abs(x_next - x_current)) * (x - x_current) + y_current
-    return _
-
-
 
 
 class DynamicPlot():
@@ -90,6 +82,11 @@ class PlotInput(QObject):
             self.ax.set_facecolor('gray')
         else:
             self.ax.set_facecolor('white')
+
+
+    def clear(self) -> None:
+        self.initial_draw(Plot([]))
+
 
     def initial_draw(self, plot: Plot) -> None:
         self.verts = [[self.range.x0, 0]] + [[segment.x1, segment(segment.x1)] for segment in plot.segments] + [[self.range.x1, 0]]
