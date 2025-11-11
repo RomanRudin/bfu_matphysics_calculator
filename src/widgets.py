@@ -6,7 +6,7 @@ from PyQt5.QtCore import QObject
 from src.plots import Range
 
 STANDART_LIMITERS = Range(0, 5, -2, 2)
-MAX_T = 20
+MAX_T = 23
 
 
 class TSlider(QObject):

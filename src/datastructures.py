@@ -70,7 +70,8 @@ class Segment:
     
     def integrate(self, previous_sum: float) -> list[Plot, float]:
         if self.x1 <= 0:
-            return Segment(self.x0, self.x1, lambda x: previous_sum + (self(x)) * (self.x1 - x)), previous_sum - (self(self.x1)) * (self.x0 - self.x1)
+            return Segment(self.x0, self.x1, lambda x: previous_sum + (self(x)) * (x - self.x1)), previous_sum + (self(self.x1)) * (self.x0 - self.x1)
+            # return Segment(self.x0, self.x1, lambda x: previous_sum + (self(x)) * (self.x1 - x)), previous_sum - (self(self.x1)) * (self.x0 - self.x1)
         return Segment(self.x0, self.x1, lambda x: previous_sum + (self(x)) * (x - self.x0)), previous_sum + (self(self.x1)) * (self.x1 - self.x0)
 
     def __call__(self, x: float) -> float:

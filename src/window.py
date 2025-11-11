@@ -251,7 +251,12 @@ class Window(QWidget):
                     y.append(self.functions_limiter.get_limiters(resulting=True).y1 + 2)
                 else:
                     y.append(self.functions_limiter.get_limiters(resulting=True).y0 - 2)
-                              
+            except SyntaxError:
+                function.setText('')
+                return
+            except NameError:
+                function.setText('')
+                return
         self.input_plots[function_name].clear()
         self.input_plots[function_name].initial_draw(Plot.fromlists(x, y))
         self.refresh_initial_plots()
@@ -309,7 +314,7 @@ class Window(QWidget):
             for function_name in ['φ(x)', 'ψ(x)']:
                 self.initial_plots_data[function_name] = self._extend_plot(self.initial_plots_data[function_name], right_constraint_type, right_constraint_x0, 'right')
         if left_constraint_type != 'none' and right_constraint_type != 'none':
-            for _ in range(2):
+            for _ in range(4):
                 for function_name in ['φ(x)', 'ψ(x)']:
                     self.initial_plots_data[function_name] = self._extend_plot(self.initial_plots_data[function_name], left_constraint_type, left_constraint_x0, 'left')
                 for function_name in ['φ(x)', 'ψ(x)']:
